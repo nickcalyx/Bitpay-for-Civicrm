@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<extension key="bitpay" type="module">
+  <file>bitpay</file>
+  <name>Bitpay payments for CiviCRM</name>
+  <description>Accept payments through bitpay (https://bitpay.com/)</description>
+  <license>AGPL-3.0</license>
+  <maintainer>
+    <author>Matthew Wire (MJW Consulting)</author>
+    <email>mjw@mjwconsult.co.uk</email>
+  </maintainer>
+  <urls>
+    <url desc="Main Extension Page">https://github.com/nickcalyx/Bitpay-for-Civicrm</url>
+    <url desc="Support">https://www.mjwconsult.co.uk</url>
+    <url desc="Licensing">http://www.gnu.org/licenses/agpl-3.0.html</url>
+  </urls>
+  <releaseDate>2018-12-24</releaseDate>
+  <version>0.1</version>
+  <develStage>alpha</develStage>
+  <compatibility>
+    <ver>5.8</ver>
+  </compatibility>
+  <civix>
+    <namespace>CRM/Bitpay</namespace>
+  </civix>
+</extension>

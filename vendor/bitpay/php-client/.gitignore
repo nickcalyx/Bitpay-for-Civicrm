@@ -1,0 +1,13 @@
+/bin/**
+/build/cache/
+/build/docs/
+/build/dist/
+/build/logs/
+/docs/_build/
+/node_modules/
+/vendor/
+/.settings/
+.project
+.buildpath
+composer.lock
+composer.phar
