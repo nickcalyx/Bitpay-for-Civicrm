@@ -1,0 +1,18 @@
+site_name: Bitpay payment processor
+repo_url: https://github.com/nickcalyx/Bitpay-for-Civicrm
+theme: material
+markdown_extensions:
+  - attr_list
+  - admonition
+  - def_list
+  - codehilite
+  - toc(permalink=true)
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.tilde
+  - pymdownx.betterem
+  - pymdownx.mark
+
+pages:
+- Setup and Configuration: setup.md
+- Release Notes: release/release_notes.md

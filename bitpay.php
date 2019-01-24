@@ -1,6 +1,8 @@
 <?php
 
 require_once 'bitpay.civix.php';
+require_once __DIR__.'/vendor/autoload.php';
+
 use CRM_Bitpay_ExtensionUtil as E;
 
 /**
