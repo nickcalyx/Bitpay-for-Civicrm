@@ -136,30 +136,68 @@ function bitpay_civicrm_entityTypes(&$entityTypes) {
   _bitpay_civix_civicrm_entityTypes($entityTypes);
 }
 
-// --- Functions below this ship commented out. Uncomment as required. ---
+/**
+ * Implementation of hook_civicrm_alterContent
+ *
+ * Adding {payment_library}.js in a way that works for webforms and (some) Civi forms.
+ * hook_civicrm_buildForm is not called for webforms
+ *
+ * @return void
+ */
+function bitpay_civicrm_alterContent( &$content, $context, $tplName, &$object ) {
+  global $_bitpay_scripts_added;
+  /* Adding {payment_library} js:
+   * - Webforms don't get scripts added by hook_civicrm_buildForm so we have to user alterContent
+   * - (Webforms still call buildForm and it looks like they are added but they are not,
+   *   which is why we check for $object instanceof CRM_Financial_Form_Payment here to ensure that
+   *   Webforms always have scripts added).
+   * - Almost all forms have context = 'form' and a paymentprocessor object.
+   * - Membership backend form is a 'page' and has a _isPaymentProcessor=true flag.
+   *
+   */
+  if (($context == 'form' && !empty($object->_paymentProcessor['class_name']))
+    || (($context == 'page') && !empty($object->_isPaymentProcessor))) {
+    if (!$_bitpay_scripts_added || $object instanceof CRM_Financial_Form_Payment) {
+      $payprocJSURL = 'https://bitpay.com/bitpay.js';
+      $content .= "<script src='{$payprocJSURL}'></script>";
+      $_bitpay_scripts_added = TRUE;
+    }
+  }
+}
 
 /**
- * Implements hook_civicrm_preProcess().
+ * Add {payment_library}.js to forms, for payment processor handling
+ * hook_civicrm_alterContent is not called for all forms (eg. CRM_Contribute_Form_Contribution on backend)
  *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_preProcess
- *
-function bitpay_civicrm_preProcess($formName, &$form) {
+ * @param string $formName
+ * @param CRM_Core_Form $form
+ */
+function bitpay_civicrm_buildForm($formName, &$form) {
+  if ($form->isSubmitted()) return;
 
-} // */
+  global $_bitpay_scripts_added;
+  if (!isset($form->_paymentProcessor)) {
+    return;
+  }
+  $paymentProcessor = $form->_paymentProcessor;
+  if (!empty($paymentProcessor['class_name'])) {
+    if (!$_bitpay_scripts_added) {
+      CRM_Core_Resources::singleton()
+        ->addScriptUrl('https://bitpay.com/bitpay.js');
+    }
+    $_bitpay_scripts_added = TRUE;
+  }
 
-/**
- * Implements hook_civicrm_navigationMenu().
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_navigationMenu
- *
-function bitpay_civicrm_navigationMenu(&$menu) {
-  _bitpay_civix_insert_navigation_menu($menu, 'Mailings', array(
-    'label' => E::ts('New subliminal message'),
-    'name' => 'mailing_subliminal_message',
-    'url' => 'civicrm/mailing/subliminal',
-    'permission' => 'access CiviMail',
-    'operator' => 'OR',
-    'separator' => 0,
-  ));
-  _bitpay_civix_navigationMenu($menu);
-} // */
+  if ($formName == 'CRM_Contribute_Form_Contribution_ThankYou') {
+    // Contribution Thankyou form
+    // Add the bitpay invoice handling
+    $form->assign('bitpayTrxnId', $form->_trxnId);
+    $form->assign('bitpayTestMode', $paymentProcessor['is_test']);
+    CRM_Core_Region::instance('contribution-thankyou-billing-block')->update('default', array(
+      'disabled' => TRUE,
+    ));
+    CRM_Core_Region::instance('contribution-thankyou-billing-block')->add(array(
+      'template' => 'Bitpaycontribution-thankyou-billing-block.tpl',
+    ));
+  }
+}

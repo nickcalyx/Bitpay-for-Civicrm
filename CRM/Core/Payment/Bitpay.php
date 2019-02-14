@@ -173,175 +173,85 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
    * @throws \Civi\Payment\Exception\PaymentProcessorException
    */
   public function doPayment(&$params, $component = 'contribute') {
-    if (array_key_exists('credit_card_number', $params)) {
-      $cc = $params['credit_card_number'];
-      if (!empty($cc) && substr($cc, 0, 8) != '00000000') {
-        Civi::log()->debug(ts('ALERT! Unmasked credit card received in back end. Please report this error to the site administrator.'));
-      }
+    $storageEngine = new \Bitpay\Storage\EncryptedFilesystemStorage(CRM_Bitpay_Keys::getKeyPassword($this->_paymentProcessor['id'])); // Password may need to be updated if you changed it
+    $privateKey = $storageEngine->load(CRM_Bitpay_Keys::getKeyPath($this->_paymentProcessor['id']));
+    $publicKey = $storageEngine->load(CRM_Bitpay_Keys::getKeyPath($this->_paymentProcessor['id'], FALSE));
+    $client = new \Bitpay\Client\Client();
+    if ($this->_paymentProcessor['is_test']) {
+      $network = new \Bitpay\Network\Testnet();
     }
+    else {
+      $network = new \Bitpay\Network\Livenet();
+    }
+    $adapter = new \Bitpay\Client\Adapter\CurlAdapter();
+    $client->setPrivateKey($privateKey);
+    $client->setPublicKey($publicKey);
+    $client->setNetwork($network);
+    $client->setAdapter($adapter);
+    // ---------------------------
+    /**
+     * The last object that must be injected is the token object.
+     */
+    $token = new \Bitpay\Token();
+    $token->setToken($this->_paymentProcessor['signature']);
+    /**
+     * Token object is injected into the client
+     */
+    $client->setToken($token);
 
-    $completedStatusId = CRM_Core_PseudoConstant::getKey('CRM_Contribute_BAO_Contribution', 'contribution_status_id', 'Completed');
+
+    /**
+     * This is where we will start to create an Invoice object, make sure to check
+     * the InvoiceInterface for methods that you can use.
+     */
+    $invoice = new \Bitpay\Invoice();
+    $buyer = new \Bitpay\Buyer();
+    $buyer->setEmail($this->getBillingEmail($params, $this->getContactId($params)));
+    // Add the buyers info to invoice
+    $invoice->setBuyer($buyer);
+    /**
+     * Item is used to keep track of a few things
+     */
+    $item = new \Bitpay\Item();
+    $item
+      ->setCode(CRM_Utils_Array::value('item_name', $params))
+      ->setDescription($params['description'])
+      ->setPrice(self::getAmount($params));
+    $invoice->setItem($item);
+    /**
+     * BitPay supports multiple different currencies. Most shopping cart applications
+     * and applications in general have defined set of currencies that can be used.
+     * Setting this to one of the supported currencies will create an invoice using
+     * the exchange rate for that currency.
+     *
+     * @see https://test.bitpay.com/bitcoin-exchange-rates for supported currencies
+     */
+    $invoice->setCurrency(new \Bitpay\Currency($this->getCurrency($params)));
+    // Configure the rest of the invoice
+    $invoice
+      ->setOrderId($params['contributionID'])
+      // You will receive IPN's at this URL, should be HTTPS for security purposes!
+      ->setNotificationUrl($this->getNotifyUrl());
+    /**
+     * Updates invoice with new information such as the invoice id and the URL where
+     * a customer can view the invoice.
+     */
+    try {
+      $client->createInvoice($invoice);
+    } catch (\Exception $e) {
+      $msg = "Bitpay doPayment Exception occured: " . $e->getMessage().PHP_EOL;
+      $request  = $client->getRequest();
+      $response = $client->getResponse();
+      $msg .= (string) $request.PHP_EOL.PHP_EOL.PHP_EOL;
+      $msg .= (string) $response.PHP_EOL.PHP_EOL;
+      Civi::log()->debug($msg);
+      Throw new CRM_Core_Exception($msg);
+    }
+    Civi::log()->debug('invoice created: ' . $invoice->getId(). '" url: ' . $invoice->getUrl() . ' Verbose details: ' . print_r($invoice, TRUE));
+
+    $params['trxn_id'] = $invoice->getId();
     $pendingStatusId = CRM_Core_PseudoConstant::getKey('CRM_Contribute_BAO_Contribution', 'contribution_status_id', 'Pending');
-
-    // If we have a $0 amount, skip call to processor and set payment_status to Completed.
-    if (empty($params['amount'])) {
-      $params['payment_status_id'] = $completedStatusId;
-      return $params;
-    }
-
-    $this->setAPIParams();
-
-    // Get proper entry URL for returning on error.
-    if (!(array_key_exists('qfKey', $params))) {
-      // Probably not called from a civicrm form (e.g. webform) -
-      // will return error object to original api caller.
-      $params['stripe_error_url'] = NULL;
-    }
-    else {
-      $qfKey = $params['qfKey'];
-      $parsed_url = parse_url($params['entryURL']);
-      $url_path = substr($parsed_url['path'], 1);
-      $params['stripe_error_url'] = CRM_Utils_System::url($url_path,
-      $parsed_url['query'] . "&_qf_Main_display=1&qfKey={$qfKey}", FALSE, NULL, FALSE);
-    }
-    $amount = self::getAmount($params);
-
-    // Use Stripe.js instead of raw card details.
-    if (!empty($params['stripe_token'])) {
-      $card_token = $params['stripe_token'];
-    }
-    else if(!empty(CRM_Utils_Array::value('stripe_token', $_POST, NULL))) {
-      $card_token = CRM_Utils_Array::value('stripe_token', $_POST, NULL);
-    }
-    else {
-      CRM_Core_Error::statusBounce(ts('Unable to complete payment! Please this to the site administrator with a description of what you were trying to do.'));
-      Civi::log()->debug('Stripe.js token was not passed!  Report this message to the site administrator. $params: ' . print_r($params, TRUE));
-    }
-
-    $contactId = self::getContactId($params);
-    $email = self::getBillingEmail($params, $contactId);
-
-    // See if we already have a stripe customer
-    $customerParams = [
-      'contact_id' => $contactId,
-      'card_token' => $card_token,
-      'is_live' => $this->_islive,
-      'processor_id' => $this->_paymentProcessor['id'],
-      'email' => $email,
-    ];
-
-    $stripeCustomerId = CRM_Stripe_Customer::find($customerParams);
-
-    // Customer not in civicrm database.  Create a new Customer in Stripe.
-    if (!isset($stripeCustomerId)) {
-      $stripeCustomer = CRM_Stripe_Customer::create($customerParams, $this);
-    }
-    else {
-      // Customer was found in civicrm database, fetch from Stripe.
-      $deleteCustomer = FALSE;
-      try {
-        $stripeCustomer = \Stripe\Customer::retrieve($stripeCustomerId);
-      }
-      catch (Exception $e) {
-        $err = self::parseStripeException('retrieve_customer', $e, FALSE);
-        if (($err['type'] == 'invalid_request_error') && ($err['code'] == 'resource_missing')) {
-          $deleteCustomer = TRUE;
-        }
-        $errorMessage = self::handleErrorNotification($err, $params['stripe_error_url']);
-        throw new \Civi\Payment\Exception\PaymentProcessorException('Failed to create Stripe Charge: ' . $errorMessage);
-      }
-
-      if ($deleteCustomer || $stripeCustomer->isDeleted()) {
-        // Customer doesn't exist, create a new one
-        CRM_Stripe_Customer::delete($customerParams);
-        try {
-          $stripeCustomer = CRM_Stripe_Customer::create($customerParams, $this);
-        }
-        catch (Exception $e) {
-          // We still failed to create a customer
-          $errorMessage = self::handleErrorNotification($stripeCustomer, $params['stripe_error_url']);
-          throw new \Civi\Payment\Exception\PaymentProcessorException('Failed to create Stripe Customer: ' . $errorMessage);
-        }
-      }
-
-      $stripeCustomer->card = $card_token;
-      try {
-        $stripeCustomer->save();
-      }
-      catch (Exception $e) {
-        $err = self::parseStripeException('update_customer', $e, TRUE);
-        if (($err['type'] == 'invalid_request_error') && ($err['code'] == 'token_already_used')) {
-          // This error is ok, we've already used the token during create_customer
-        }
-        else {
-          $errorMessage = self::handleErrorNotification($err, $params['stripe_error_url']);
-          throw new \Civi\Payment\Exception\PaymentProcessorException('Failed to update Stripe Customer: ' . $errorMessage);
-        }
-      }
-    }
-
-    // Prepare the charge array, minus Customer/Card details.
-    if (empty($params['description'])) {
-      $params['description'] = ts('Backend Stripe contribution');
-    }
-
-    // Handle recurring payments in doRecurPayment().
-    if (CRM_Utils_Array::value('is_recur', $params) && $params['contributionRecurID']) {
-      // We set payment status as pending because the IPN will set it as completed / failed
-      $params['payment_status_id'] = $pendingStatusId;
-      return $this->doRecurPayment($params, $amount, $stripeCustomer);
-    }
-
-    // Stripe charge.
-    $stripeChargeParams = [
-      'amount' => $amount,
-      'currency' => strtolower($params['currencyID']),
-      'description' => $params['description'] . ' # Invoice ID: ' . CRM_Utils_Array::value('invoiceID', $params),
-    ];
-
-    // Use Stripe Customer if we have a valid one.  Otherwise just use the card.
-    if (!empty($stripeCustomer->id)) {
-      $stripeChargeParams['customer'] = $stripeCustomer->id;
-    }
-    else {
-      $stripeChargeParams['card'] = $card_token;
-    }
-
-    try {
-      $stripeCharge = \Stripe\Charge::create($stripeChargeParams);
-    }
-    catch (Exception $e) {
-      $err = self::parseStripeException('charge_create', $e, FALSE);
-      if ($e instanceof \Stripe\Error\Card) {
-        civicrm_api3('Note', 'create', [
-          'entity_id' => $params['contributionID'],
-          'contact_id' => self::getContactId($params),
-          'subject' => $err['type'],
-          'note' => $err['code'],
-          'entity_table' => 'civicrm_contribution',
-        ]);
-      }
-      $errorMessage = self::handleErrorNotification($err, $params['stripe_error_url']);
-      throw new \Civi\Payment\Exception\PaymentProcessorException('Failed to create Stripe Charge: ' . $errorMessage);
-    }
-
-    // Success!  Return some values for CiviCRM.
-    $params['trxn_id'] = $stripeCharge->id;
-    $params['payment_status_id'] = $completedStatusId;
-
-    // Return fees & net amount for Civi reporting.
-    // Uses new Balance Trasaction object.
-    try {
-      $stripeBalanceTransaction = \Stripe\BalanceTransaction::retrieve($stripeCharge->balance_transaction);
-    }
-    catch (Exception $e) {
-      $err = self::parseStripeException('retrieve_balance_transaction', $e, FALSE);
-      $errorMessage = self::handleErrorNotification($err, $params['stripe_error_url']);
-      throw new \Civi\Payment\Exception\PaymentProcessorException('Failed to retrieve Stripe Balance Transaction: ' . $errorMessage);
-    }
-    $params['fee_amount'] = $stripeBalanceTransaction->fee / 100;
-    $params['net_amount'] = $stripeBalanceTransaction->net / 100;
-
+    $params['payment_status_id'] = $pendingStatusId;
     return $params;
   }
 
@@ -390,7 +300,7 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
    *
    * @return string|NULL
    */
-  protected static function getBillingEmail($params, $contactId) {
+  protected function getBillingEmail($params, $contactId) {
     $billingLocationId = CRM_Core_BAO_LocationType::getBilling();
 
     $emailAddress = CRM_Utils_Array::value("email-{$billingLocationId}", $params,
@@ -419,7 +329,7 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
    *
    * @return int ContactID
    */
-  protected static function getContactId($params) {
+  protected function getContactId($params) {
     $contactId = CRM_Utils_Array::value('contactID', $params,
       CRM_Utils_Array::value('contact_id', $params,
         CRM_Utils_Array::value('cms_contactID', $params,
