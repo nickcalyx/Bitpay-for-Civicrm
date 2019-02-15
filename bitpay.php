@@ -137,35 +137,6 @@ function bitpay_civicrm_entityTypes(&$entityTypes) {
 }
 
 /**
- * Implementation of hook_civicrm_alterContent
- *
- * Adding {payment_library}.js in a way that works for webforms and (some) Civi forms.
- * hook_civicrm_buildForm is not called for webforms
- *
- * @return void
- */
-function bitpay_civicrm_alterContent( &$content, $context, $tplName, &$object ) {
-  global $_bitpay_scripts_added;
-  /* Adding {payment_library} js:
-   * - Webforms don't get scripts added by hook_civicrm_buildForm so we have to user alterContent
-   * - (Webforms still call buildForm and it looks like they are added but they are not,
-   *   which is why we check for $object instanceof CRM_Financial_Form_Payment here to ensure that
-   *   Webforms always have scripts added).
-   * - Almost all forms have context = 'form' and a paymentprocessor object.
-   * - Membership backend form is a 'page' and has a _isPaymentProcessor=true flag.
-   *
-   */
-  if (($context == 'form' && !empty($object->_paymentProcessor['class_name']))
-    || (($context == 'page') && !empty($object->_isPaymentProcessor))) {
-    if (!$_bitpay_scripts_added || $object instanceof CRM_Financial_Form_Payment) {
-      $payprocJSURL = 'https://bitpay.com/bitpay.js';
-      $content .= "<script src='{$payprocJSURL}'></script>";
-      $_bitpay_scripts_added = TRUE;
-    }
-  }
-}
-
-/**
  * Add {payment_library}.js to forms, for payment processor handling
  * hook_civicrm_alterContent is not called for all forms (eg. CRM_Contribute_Form_Contribution on backend)
  *
@@ -175,17 +146,12 @@ function bitpay_civicrm_alterContent( &$content, $context, $tplName, &$object ) 
 function bitpay_civicrm_buildForm($formName, &$form) {
   if ($form->isSubmitted()) return;
 
-  global $_bitpay_scripts_added;
   if (!isset($form->_paymentProcessor)) {
     return;
   }
   $paymentProcessor = $form->_paymentProcessor;
-  if (!empty($paymentProcessor['class_name'])) {
-    if (!$_bitpay_scripts_added) {
-      CRM_Core_Resources::singleton()
-        ->addScriptUrl('https://bitpay.com/bitpay.js');
-    }
-    $_bitpay_scripts_added = TRUE;
+  if (empty($paymentProcessor['class_name']) || ($paymentProcessor['class_name'] !== 'Payment_Bitpay')) {
+    return;
   }
 
   if ($formName == 'CRM_Contribute_Form_Contribution_ThankYou') {
