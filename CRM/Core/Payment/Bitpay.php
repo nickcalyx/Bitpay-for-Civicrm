@@ -17,11 +17,9 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
   private static $_singleton = NULL;
 
   /**
-   * Mode of operation: live or test.
-   *
-   * @var object
+   * @var CRM_Bitpay_Client The Bitpay client object
    */
-  protected $_mode = NULL;
+  private $_client = NULL;
 
   /**
    * Constructor
@@ -32,9 +30,9 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
    * @return void
    */
   public function __construct($mode, &$paymentProcessor) {
-    $this->_mode = $mode;
     $this->_paymentProcessor = $paymentProcessor;
     $this->_processorName = ts('Bitpay');
+    $this->_client = new CRM_Bitpay_Client($this->_paymentProcessor);
   }
 
   /**
@@ -173,32 +171,8 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
    * @throws \Civi\Payment\Exception\PaymentProcessorException
    */
   public function doPayment(&$params, $component = 'contribute') {
-    $storageEngine = new \Bitpay\Storage\EncryptedFilesystemStorage(CRM_Bitpay_Keys::getKeyPassword($this->_paymentProcessor['id'])); // Password may need to be updated if you changed it
-    $privateKey = $storageEngine->load(CRM_Bitpay_Keys::getKeyPath($this->_paymentProcessor['id']));
-    $publicKey = $storageEngine->load(CRM_Bitpay_Keys::getKeyPath($this->_paymentProcessor['id'], FALSE));
-    $client = new \Bitpay\Client\Client();
-    if ($this->_paymentProcessor['is_test']) {
-      $network = new \Bitpay\Network\Testnet();
-    }
-    else {
-      $network = new \Bitpay\Network\Livenet();
-    }
-    $adapter = new \Bitpay\Client\Adapter\CurlAdapter();
-    $client->setPrivateKey($privateKey);
-    $client->setPublicKey($publicKey);
-    $client->setNetwork($network);
-    $client->setAdapter($adapter);
-    // ---------------------------
-    /**
-     * The last object that must be injected is the token object.
-     */
-    $token = new \Bitpay\Token();
-    $token->setToken($this->_paymentProcessor['signature']);
-    /**
-     * Token object is injected into the client
-     */
-    $client->setToken($token);
-
+    // Get the bitpay client object
+    $client = $this->_client->getClient();
 
     /**
      * This is where we will start to create an Invoice object, make sure to check
@@ -270,19 +244,20 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
   }
 
   /**
-   * Process incoming notification.
+   * Process incoming payment notification (IPN).
+   * https://bitpay.com/docs/invoice-callbacks
    *
    * @throws \CRM_Core_Exception
    * @throws \CiviCRM_API3_Exception
    */
   public static function handlePaymentNotification() {
-    // TODO process IPN
-    $data_raw = file_get_contents("php://input");
-    $data = json_decode($data_raw);
-    //$ipnClass = new CRM_Core_Payment_StripeIPN($data);
-    //if ($ipnClass->main()) {
-    //  http_response_code(200);
-    //}
+    $dataRaw = file_get_contents("php://input");
+    $data = json_decode($dataRaw);
+    $ipnClass = new CRM_Core_Payment_BitpayIPN($data);
+    if ($ipnClass->main()) {
+      //Respond with HTTP 200, so BitPay knows the IPN has been received correctly
+      http_response_code(200);
+    }
   }
 
 
