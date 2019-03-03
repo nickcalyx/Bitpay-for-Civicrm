@@ -109,6 +109,7 @@ class CRM_Core_Payment_BitpayIPN extends CRM_Core_Payment_BaseIPN {
       return civicrm_api3('Contribution', 'getvalue', [
         'return' => "id",
         'trxn_id' => $this->_invoice->getId(),
+        'contribution_test' => $this->_paymentProcessor['is_test'],
       ]);
     }
     catch (Exception $e) {
