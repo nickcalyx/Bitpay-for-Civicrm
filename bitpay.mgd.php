@@ -43,6 +43,7 @@ return array(
       'class_name' => 'Payment_Bitpay',
       'url_site_default' => 'https://bitpay.com/api/',
       'url_site_test_default' => 'https://test.bitpay.com/api',
+      'is_recur' => 0,
       'billing_mode' => 1,
     ),
   ),

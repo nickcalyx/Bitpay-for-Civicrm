@@ -9,14 +9,6 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
   public static $className = 'Payment_Bitpay';
 
   /**
-   * We only need one instance of this object. So we use the singleton
-   * pattern and cache the instance in this variable
-   *
-   * @var object
-   */
-  private static $_singleton = NULL;
-
-  /**
    * @var CRM_Bitpay_Client The Bitpay client object
    */
   private $_client = NULL;
@@ -81,39 +73,24 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
   }
 
   /**
-   * Get the currency for the transaction.
-   *
-   * Handle any inconsistency about how it is passed in here.
-   *
-   * @param $params
-   *
-   * @return string
-   */
-  public function getAmount($params) {
-    // TODO: What do we need to return?
-    return $params['amount'];
-  }
-
-  /**
    * Override CRM_Core_Payment function
    *
    * @return array
    */
   public function getPaymentFormFields() {
-    // TODO What form fields do we need?
+    // Bitpay loads a payment modal via JS, we don't need any payment fields
     return [];
   }
 
   /**
    * Return an array of all the details about the fields potentially required for payment fields.
-   *
    * Only those determined by getPaymentFormFields will actually be assigned to the form
    *
    * @return array
    *   field metadata
    */
   public function getPaymentFormFieldsMetadata() {
-    // TODO What form fields do we need?
+    // Bitpay loads a payment modal via JS, we don't need any payment fields
     return [];
   }
 
@@ -126,39 +103,21 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
    *    Array of metadata for address fields.
    */
   public function getBillingAddressFieldsMetadata($billingLocationID = NULL) {
-    // TODO: What billing fields do we need?
-    $metadata = parent::getBillingAddressFieldsMetadata($billingLocationID);
-    if (!$billingLocationID) {
-      // Note that although the billing id is passed around the forms the idea that it would be anything other than
-      // the result of the function below doesn't seem to have eventuated.
-      // So taking this as a param is possibly something to be removed in favour of the standard default.
-      $billingLocationID = CRM_Core_BAO_LocationType::getBilling();
-    }
-
-    // Stripe does not require the state/county field
-    if (!empty($metadata["billing_state_province_id-{$billingLocationID}"]['is_required'])) {
-      $metadata["billing_state_province_id-{$billingLocationID}"]['is_required'] = FALSE;
-    }
-
-    return $metadata;
+    // Bitpay loads a payment modal via JS, we don't need any billing fields - could optionally add some though?
+    return [];
   }
 
-  /**
-   * Set default values when loading the (payment) form
-   *
-   * @param \CRM_Core_Form $form
-   */
-  public function buildForm(&$form) {
-    // TODO: What defaults
-    // Set default values
-    //$form->setDefaults($defaults);
+  public function getBillingAddressFields($billingLocationID = NULL) {
+    // Bitpay loads a payment modal via JS, we don't need any billing fields - could optionally add some though?
+    return [];
   }
 
   /**
    * Process payment
-   * Submit a payment using Stripe's PHP API:
-   * https://stripe.com/docs/api?lang=php
-   * Payment processors should set payment_status_id.
+   * Submit a payment using Bitpay's PHP API:
+   * https://github.com/bitpay/php-bitpay-client
+   *
+   * Payment processors should set payment_status_id and trxn_id (if available).
    *
    * @param array $params
    *   Assoc array of input parameters for this transaction.
@@ -168,7 +127,8 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
    * @return array
    *   Result array
    *
-   * @throws \Civi\Payment\Exception\PaymentProcessorException
+   * @throws \CRM_Core_Exception
+   * @throws \CiviCRM_API3_Exception
    */
   public function doPayment(&$params, $component = 'contribute') {
     // Get the bitpay client object
@@ -190,7 +150,7 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
     $item
       ->setCode(CRM_Utils_Array::value('item_name', $params))
       ->setDescription($params['description'])
-      ->setPrice(self::getAmount($params));
+      ->setPrice($this->getAmount($params));
     $invoice->setItem($item);
     /**
      * BitPay supports multiple different currencies. Most shopping cart applications
@@ -324,7 +284,7 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
 
   /**
    * Get url for users to manage this recurring contribution for this processor.
-   * FIXME: Remove and increment min version once https://github.com/civicrm/civicrm-core/pull/13215 is merged.
+   * FIXME: In 5.10.0 release - Merged via https://github.com/civicrm/civicrm-core/pull/13215
    *
    * @param int $entityID
    * @param null $entity

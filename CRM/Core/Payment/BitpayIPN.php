@@ -1,7 +1,7 @@
 <?php
 /*
  * @file
- * Handle Stripe Webhooks for recurring payments.
+ * Handle Bitpay Webhooks for recurring payments.
  */
 
 class CRM_Core_Payment_BitpayIPN extends CRM_Core_Payment_BaseIPN {
@@ -22,9 +22,9 @@ class CRM_Core_Payment_BitpayIPN extends CRM_Core_Payment_BaseIPN {
   private $_invoice = NULL;
 
   /**
-   * CRM_Core_Payment_StripeIPN constructor.
+   * CRM_Core_Payment_BitpayIPN constructor.
    *
-   * @param $ipnData
+   * @param array $ipnData
    * @param bool $verify
    *
    * @throws \CRM_Core_Exception
@@ -47,7 +47,7 @@ class CRM_Core_Payment_BitpayIPN extends CRM_Core_Payment_BaseIPN {
     $invoice = $client->getInvoice($ipnData->id);
     $this->_invoice = $invoice;
 
-    // TODO: this is for debug, we could remove it...
+    // FIXME: this is for debug, we could remove it...
     $invoiceId = $invoice->getId();
     $invoiceStatus = $invoice->getStatus();
     $invoiceExceptionStatus = $invoice->getExceptionStatus();
@@ -57,14 +57,14 @@ class CRM_Core_Payment_BitpayIPN extends CRM_Core_Payment_BaseIPN {
   }
 
   /**
-   * @throws \CRM_Core_Exception
+   * Main handler for bitpay IPN callback
+   *
+   * @return bool
    * @throws \CiviCRM_API3_Exception
    */
   public function main() {
     // First we receive an IPN with status "paid" - contribution remains pending - how do we indicate we received "paid"?
     // Then we receive an IPN with status "confirmed" - we set contribution = completed.
-
-    $invoiceStatus = $this->_invoice->getStatus();
 
     switch ($this->_invoice->getStatus()) {
       case \Bitpay\Invoice::STATUS_NEW:
@@ -138,7 +138,7 @@ class CRM_Core_Payment_BitpayIPN extends CRM_Core_Payment_BaseIPN {
       $this->exception('Failed to get payment processor id');
     }
 
-    // Get the Stripe secret key.
+    // Get the Bitpay secret key.
     try {
       $this->_paymentProcessor = \Civi\Payment\System::singleton()->getById($paymentProcessorId)->getPaymentProcessor();
     }
@@ -148,12 +148,39 @@ class CRM_Core_Payment_BitpayIPN extends CRM_Core_Payment_BaseIPN {
   }
 
   /**
-   * @param $params [ 'id' -> contribution_id, 'payment_processor_id' -> payment_processor_id]
+   * Mark a contribution as cancelled and update related entities
+   *
+   * @param array $params [ 'id' -> contribution_id, 'payment_processor_id' -> payment_processor_id]
    *
    * @return bool
-   * @throws \API_Exception
+   * @throws \CiviCRM_API3_Exception
    */
   protected function canceltransaction($params) {
+    return $this->incompletetransaction($params, 'cancel');
+  }
+
+  /**
+   * Mark a contribution as failed and update related entities
+   *
+   * @param array $params [ 'id' -> contribution_id, 'payment_processor_id' -> payment_processor_id]
+   *
+   * @return bool
+   * @throws \CiviCRM_API3_Exception
+   */
+  protected function failtransaction($params) {
+    return $this->incompletetransaction($params, 'fail');
+  }
+
+  /**
+   * Handler for failtransaction and canceltransaction - do not call directly
+   *
+   * @param array $params
+   * @param string $mode
+   *
+   * @return bool
+   * @throws \CiviCRM_API3_Exception
+   */
+  protected function incompletetransaction($params, $mode) {
     $requiredParams = ['id', 'payment_processor_id'];
     foreach ($requiredParams as $required) {
       if (!isset($params[$required])) {
@@ -167,11 +194,11 @@ class CRM_Core_Payment_BitpayIPN extends CRM_Core_Payment_BaseIPN {
     $contribution = new CRM_Contribute_BAO_Contribution();
     $contribution->id = $params['id'];
     if (!$contribution->find(TRUE)) {
-      throw new API_Exception('A valid contribution ID is required', 'invalid_data');
+      throw new CiviCRM_API3_Exception('A valid contribution ID is required', 'invalid_data');
     }
 
     if (!$contribution->loadRelatedObjects($input, $ids, TRUE)) {
-      throw new API_Exception('failed to load related objects');
+      throw new CiviCRM_API3_Exception('failed to load related objects');
     }
 
     $input['trxn_id'] = !empty($params['trxn_id']) ? $params['trxn_id'] : $contribution->trxn_id;
@@ -183,50 +210,21 @@ class CRM_Core_Payment_BitpayIPN extends CRM_Core_Payment_BaseIPN {
     $objects = array_merge($objects, $contribution->_relatedObjects);
 
     $transaction = new CRM_Core_Transaction();
-    return $this->cancelled($objects, $transaction);
-  }
+    switch ($mode) {
+      case 'cancel':
+        return $this->cancelled($objects, $transaction);
 
-  /**
-   * @param $params [ 'id' -> contribution_id, 'payment_processor_id' -> payment_processor_id]
-   *
-   * @return bool
-   * @throws \API_Exception
-   */
-  protected function failtransaction($params) {
-    $requiredParams = ['id', 'payment_processor_id'];
-    foreach ($requiredParams as $required) {
-      if (!isset($params[$required])) {
-        $this->exception('failtransaction: Missing mandatory parameter: ' . $required);
-      }
+      case 'fail':
+        return $this->failed($objects, $transaction);
+
+      default:
+        throw new CiviCRM_API3_Exception('Unknown incomplete transaction type: ' . $mode);
     }
 
-    if (isset($params['payment_processor_id'])) {
-      $input['payment_processor_id'] = $params['payment_processor_id'];
-    }
-    $contribution = new CRM_Contribute_BAO_Contribution();
-    $contribution->id = $params['id'];
-    if (!$contribution->find(TRUE)) {
-      throw new API_Exception('A valid contribution ID is required', 'invalid_data');
-    }
-
-    if (!$contribution->loadRelatedObjects($input, $ids, TRUE)) {
-      throw new API_Exception('failed to load related objects');
-    }
-
-    $input['trxn_id'] = !empty($params['trxn_id']) ? $params['trxn_id'] : $contribution->trxn_id;
-    if (!empty($params['fee_amount'])) {
-      $input['fee_amount'] = $params['fee_amount'];
-    }
-
-    $objects['contribution'] = &$contribution;
-    $objects = array_merge($objects, $contribution->_relatedObjects);
-
-    $transaction = new CRM_Core_Transaction();
-    return $this->failed($objects, $transaction);
   }
 
   /*******************************************************************
    * THE FOLLOWING FUNCTIONS SHOULD BE REMOVED ONCE THEY ARE IN CORE
-   * START
+   * END
    ******************************************************************/
 }
