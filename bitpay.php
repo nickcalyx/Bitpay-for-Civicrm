@@ -38,6 +38,7 @@ function bitpay_civicrm_install() {
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_postInstall
  */
 function bitpay_civicrm_postInstall() {
+  CRM_Core_Payment_Bitpay::createPaymentInstrument(['name' => 'Bitcoin']);
   _bitpay_civix_civicrm_postInstall();
 }
 
@@ -166,4 +167,5 @@ function bitpay_civicrm_buildForm($formName, &$form) {
       'template' => 'Bitpaycontribution-thankyou-billing-block.tpl',
     ));
   }
+
 }

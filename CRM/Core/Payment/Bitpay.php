@@ -283,87 +283,56 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
   }
 
   /**
-   * Get url for users to manage this recurring contribution for this processor.
-   * FIXME: In 5.10.0 release - Merged via https://github.com/civicrm/civicrm-core/pull/13215
    *
-   * @param int $entityID
-   * @param null $entity
-   * @param string $action
+   * @param array $params ['name' => payment instrument name]
    *
-   * @return string
+   * @return int|null
+   * @throws \CiviCRM_API3_Exception
    */
-  public function subscriptionURL($entityID = NULL, $entity = NULL, $action = 'cancel') {
-    // Set URL
-    switch ($action) {
-      case 'cancel':
-        if (!$this->supports('cancelRecurring')) {
-          return NULL;
-        }
-        $url = 'civicrm/contribute/unsubscribe';
-        break;
-
-      case 'billing':
-        //in notify mode don't return the update billing url
-        if (!$this->supports('updateSubscriptionBillingInfo')) {
-          return NULL;
-        }
-        $url = 'civicrm/contribute/updatebilling';
-        break;
-
-      case 'update':
-        if (!$this->supports('changeSubscriptionAmount') && !$this->supports('editRecurringContribution')) {
-          return NULL;
-        }
-        $url = 'civicrm/contribute/updaterecur';
-        break;
-    }
-
-    $userId = CRM_Core_Session::singleton()->get('userID');
-    $contactID = 0;
-    $checksumValue = '';
-    $entityArg = '';
-
-    // Find related Contact
-    if ($entityID) {
-      switch ($entity) {
-        case 'membership':
-          $contactID = CRM_Core_DAO::getFieldValue("CRM_Member_DAO_Membership", $entityID, "contact_id");
-          $entityArg = 'mid';
-          break;
-
-        case 'contribution':
-          $contactID = CRM_Core_DAO::getFieldValue("CRM_Contribute_DAO_Contribution", $entityID, "contact_id");
-          $entityArg = 'coid';
-          break;
-
-        case 'recur':
-          $sql = "
-    SELECT DISTINCT con.contact_id
-      FROM civicrm_contribution_recur rec
-INNER JOIN civicrm_contribution con ON ( con.contribution_recur_id = rec.id )
-     WHERE rec.id = %1";
-          $contactID = CRM_Core_DAO::singleValueQuery($sql, array(1 => array($entityID, 'Integer')));
-          $entityArg = 'crid';
-          break;
+  public static function createPaymentInstrument($params) {
+    $mandatoryParams = ['name'];
+    foreach ($mandatoryParams as $value) {
+      if (empty($params[$value])) {
+        Civi::log()->error('createPaymentInstrument: Missing mandatory parameter: ' . $value);
+        return NULL;
       }
     }
 
-    // Add entity arguments
-    if ($entityArg != '') {
-      // Add checksum argument
-      if ($contactID != 0 && $userId != $contactID) {
-        $checksumValue = '&cs=' . CRM_Contact_BAO_Contact_Utils::generateChecksum($contactID, NULL, 'inf');
+    // Create a Payment Instrument
+    // See if we already have this type
+    $paymentInstrument = civicrm_api3('OptionValue', 'get', array(
+      'option_group_id' => "payment_instrument",
+      'name' => $params['name'],
+    ));
+    if (empty($paymentInstrument['count'])) {
+      // Otherwise create it
+      try {
+        $financialAccount = civicrm_api3('FinancialAccount', 'getsingle', [
+          'financial_account_type_id' => "Asset",
+          'name' => "Payment Processor Account",
+        ]);
       }
-      return CRM_Utils_System::url($url, "reset=1&{$entityArg}={$entityID}{$checksumValue}", TRUE, NULL, FALSE, TRUE);
-    }
+      catch (Exception $e) {
+        $financialAccount = civicrm_api3('FinancialAccount', 'getsingle', [
+          'financial_account_type_id' => "Asset",
+          'name' => "Payment Processor Account",
+          'options' => ['limit' => 1, 'sort' => "id ASC"],
+        ]);
+      }
 
-    // Else login URL
-    if ($this->supports('accountLoginURL')) {
-      return $this->accountLoginURL();
+      $paymentParams = [
+        'option_group_id' => "payment_instrument",
+        'name' => $params['name'],
+        'description' => $params['name'],
+        'financial_account_id' => $financialAccount['id'],
+      ];
+      $paymentInstrument = civicrm_api3('OptionValue', 'create', $paymentParams);
+      $paymentInstrumentId = $paymentInstrument['values'][$paymentInstrument['id']]['value'];
     }
-
-    // Else default
-    return isset($this->_paymentProcessor['url_recur']) ? $this->_paymentProcessor['url_recur'] : '';
+    else {
+      $paymentInstrumentId = $paymentInstrument['id'];
+    }
+    return $paymentInstrumentId;
   }
 
 }
