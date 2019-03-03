@@ -28,7 +28,7 @@ function civicrm_api3_bitpay_createkeys($params) {
   return civicrm_api3_create_success(['result' => $result], $params, 'Bitpay', 'createkeys');
 }
 
-function _civicrm_api3_bitpay_createkeys(&$spec) {
+function _civicrm_api3_bitpay_createkeys_spec(&$spec) {
   $spec['payment_processor_id']['api.required'] = 1;
   $spec['payment_processor_id']['title'] = 'Payment Processor ID';
   $spec['payment_processor_id']['description'] = 'The Payment Processor ID';
