@@ -184,6 +184,7 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
     Civi::log()->debug('invoice created: ' . $invoice->getId(). '" url: ' . $invoice->getUrl() . ' Verbose details: ' . print_r($invoice, TRUE));
 
     $params['trxn_id'] = $invoice->getId();
+    civicrm_api3('Contribution', 'create', ['id' => $this->getContributionId($params), 'trxn_id' => $invoice->getId()]);
     $pendingStatusId = CRM_Core_PseudoConstant::getKey('CRM_Contribute_BAO_Contribution', 'contribution_status_id', 'Pending');
     $params['payment_status_id'] = $pendingStatusId;
     return $params;
@@ -280,6 +281,17 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
     // The code below is exactly what CiviEvent does, but does not pass it through to the next function.
     $session = CRM_Core_Session::singleton();
     return $session->get('transaction.userID', NULL);
+  }
+
+  /**
+   * Get the contribution ID
+   *
+   * @param $params
+   *
+   * @return mixed
+   */
+  protected function getContributionId($params) {
+    return $params['contributionID'];
   }
 
   /**
