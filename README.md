@@ -16,11 +16,7 @@ This extension has not yet been published for installation via the web UI.
 ## Usage
 
 
-## Known Issues
-
-Not finished yet!
-
-TODO:
-* Do we need to collect billing address? (We are at the moment).
-* Add a "pay now" button to the thankyou page in case the invoice is closed, but hide it once the invoice has been paid (see https://bitpay.com/docs/display-invoice).
-* Implement IPN handler (currently all contributions remain in pending status as they are only confirmed some time later).
+## Potential future development
+* Show amount in bitcoin on the contribution pages?
+* Record when invoice status changes from pending->paid->confirmed->completed? (We mark completed when it gets confirmed).
+* Record amount paid in BTC on contribution record?

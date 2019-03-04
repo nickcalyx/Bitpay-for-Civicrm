@@ -11,13 +11,8 @@
 
 namespace Symfony\Component\DependencyInjection\Tests\Fixtures;
 
-class Bar implements BarInterface
-{
-    public function __construct($quz = null, \NonExistent $nonExistent = null, BarInterface $decorated = null, array $foo = [])
-    {
-    }
+use Symfony\Component\DependencyInjection\Definition;
 
-    public static function create(\NonExistent $nonExistent = null, $factory = null)
-    {
-    }
+class TestDefinition1 extends Definition
+{
 }
