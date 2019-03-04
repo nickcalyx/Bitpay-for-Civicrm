@@ -1,10 +1,15 @@
 <script src="https://bitpay.com/bitpay.js"></script>
 
-<div class="crm-section crm-bitpay-block">
-  <div class="crm-bitpay" id="bitpay-trxnid" style="display: none">{$bitpayTrxnId}</div>
-  <a id="bitpay-payment-link" href="javascript:void(0)" onclick="bitpay.showInvoice('{$bitpayTrxnId}')">
-    <img id="bitpay-payment-button" src="https://www.bitpay.com/cdn/en_US/bp-btn-pay.svg" alt="Pay with BitPay" style="padding: 10px"/>
-  </a>
+<div class="crm-group credit_card-group">
+  <div class="header-dark">
+    {ts}Payment Information{/ts}
+  </div>
+  <div class="crm-section crm-bitpay-block">
+    <div class="crm-bitpay" id="bitpay-trxnid" style="display: none">{$bitpayTrxnId}</div>
+    <a id="bitpay-payment-link" href="javascript:void(0)" onclick="bitpay.showInvoice('{$bitpayTrxnId}')">
+      <img id="bitpay-payment-button" src="https://www.bitpay.com/cdn/en_US/bp-btn-pay.svg" alt="Pay with BitPay" style="padding: 10px"/>
+    </a>
+  </div>
 </div>
 
 {literal}

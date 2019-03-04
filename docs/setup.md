@@ -1,6 +1,6 @@
 ## Setup
 
-This extension replaces the uk.co.circleinteractive.payment.bitcoin.
+*This extension replaces the uk.co.circleinteractive.payment.bitcoin extension. Uninstall that extension before installing this one.*
 
 #### Create an account
 Go to https://test.bitpay.com and create an account. Verify account.
