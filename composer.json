@@ -1,5 +1,6 @@
 {
     "require": {
-        "bitpay/php-client": "~2.2"
+        "bitpay/php-client": "~2.2",
+        "symfony/filesystem": "~3.0"
     }
 }

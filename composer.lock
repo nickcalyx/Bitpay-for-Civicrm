@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "af9c8e9e81b2e2081842fbcb8a063f90",
+    "content-hash": "f93e9ea581c35ba22f47417db3450b13",
     "packages": [
         {
             "name": "bitpay/php-client",
@@ -262,26 +262,26 @@
         },
         {
             "name": "symfony/filesystem",
-            "version": "v4.2.4",
+            "version": "v3.4.23",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/filesystem.git",
-                "reference": "e16b9e471703b2c60b95f14d31c1239f68f11601"
+                "reference": "acf99758b1df8e9295e6b85aa69f294565c9fedb"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/filesystem/zipball/e16b9e471703b2c60b95f14d31c1239f68f11601",
-                "reference": "e16b9e471703b2c60b95f14d31c1239f68f11601",
+                "url": "https://api.github.com/repos/symfony/filesystem/zipball/acf99758b1df8e9295e6b85aa69f294565c9fedb",
+                "reference": "acf99758b1df8e9295e6b85aa69f294565c9fedb",
                 "shasum": ""
             },
             "require": {
-                "php": "^7.1.3",
+                "php": "^5.5.9|>=7.0.8",
                 "symfony/polyfill-ctype": "~1.8"
             },
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-master": "4.2-dev"
+                    "dev-master": "3.4-dev"
                 }
             },
             "autoload": {
@@ -308,7 +308,7 @@
             ],
             "description": "Symfony Filesystem Component",
             "homepage": "https://symfony.com",
-            "time": "2019-02-07T11:40:08+00:00"
+            "time": "2019-02-04T21:34:32+00:00"
         },
         {
             "name": "symfony/polyfill-ctype",
