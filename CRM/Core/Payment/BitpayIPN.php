@@ -88,6 +88,7 @@ class CRM_Core_Payment_BitpayIPN extends CRM_Core_Payment_BaseIPN {
         civicrm_api3('Contribution', 'completetransaction', [
           'id' => $this->getContributionId(),
           'trxn_date' => $this::$_now,
+          'is_email_receipt' => 0,
         ]);
         break;
 
