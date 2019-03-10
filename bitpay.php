@@ -29,6 +29,7 @@ function bitpay_civicrm_xmlMenu(&$files) {
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_install
  */
 function bitpay_civicrm_install() {
+  _bitpay_civicrm_cleanupOldExtension();
   _bitpay_civix_civicrm_install();
 }
 
@@ -145,7 +146,9 @@ function bitpay_civicrm_entityTypes(&$entityTypes) {
  * @param CRM_Core_Form $form
  */
 function bitpay_civicrm_buildForm($formName, &$form) {
-  if ($form->isSubmitted()) return;
+  if ($form->isSubmitted()) {
+    return;
+  }
 
   if (!isset($form->_paymentProcessor)) {
     return;
@@ -176,6 +179,67 @@ function bitpay_civicrm_buildForm($formName, &$form) {
       CRM_Core_Region::instance('contribution-thankyou-billing-block')
         ->add(['template' => 'Bitpaycontribution-thankyou-billing-block.tpl']);
       break;
+  }
+}
+
+/**
+ * Cleanup the old uk.co.circleinteractive.payment.bitcoin extension
+ */
+function _bitpay_civicrm_cleanupOldExtension() {
+  // Remove old scheduled job
+  try {
+    $jobId = civicrm_api3('job', 'getvalue', [
+      'api_entity' => 'job',
+      'api_action' => 'update_bitpay_invoices',
+      'return'     => 'id',
+    ]);
+    civicrm_api3('job', 'delete', [
+      'id' => $jobId,
+    ]);
+    $successes[] = 'Deleted scheduled job update_bitpay_invoices';
+  } catch (CiviCRM_API3_Exception $e) {
+    $errors[] = 'Unable to delete scheduled job: ' . $e->getMessage();
+  }
+
+  // Uninstall existing bitcoin
+  try {
+    $bitcoinId = civicrm_api3('PaymentProcessorType', 'getvalue', [
+      'class_name' => 'Payment_BitcoinD',
+      'return'     => 'id'
+    ]);
+    civicrm_api3('PaymentProcessorType', 'create', [
+      'id' => $bitcoinId,
+      'class_name' => 'Payment_BitcoinD_Old',
+    ]);
+  } catch (CiviCRM_API3_Exception $e) {
+    $errors[] = 'Could not get PaymentProcessorType for Payment_BitcoinD - it is not installed';
+  }
+
+  // Uninstall existing bitpay
+  try {
+    $bitPayOldId = civicrm_api3('PaymentProcessorType', 'getvalue', [
+      'class_name' => 'Payment_BitPay_Old',
+      'return' => 'id'
+    ]);
+    if (!empty($bitPayOldId)) {
+      return;
+    }
+  } catch (CiviCRM_API3_Exception $e) {
+    // That's fine, we haven't already upgraded.
+  }
+
+  try {
+    $bitPayId = civicrm_api3('PaymentProcessorType', 'getvalue', [
+      'class_name' => 'Payment_BitPay',
+      'return'     => 'id'
+    ]);
+    civicrm_api3('PaymentProcessorType', 'create', [
+      'id' => $bitPayId,
+      'class_name' => 'Payment_BitPay_Old',
+
+    ]);
+  } catch (CiviCRM_API3_Exception $e) {
+    $errors[] = 'Could not get PaymentProcessorType for Payment_BitPay - it is not installed';
   }
 
 }
