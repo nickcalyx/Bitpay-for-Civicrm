@@ -185,11 +185,23 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
     }
     Civi::log()->debug('invoice created: ' . $invoice->getId(). '" url: ' . $invoice->getUrl() . ' Verbose details: ' . print_r($invoice, TRUE));
 
-    $params['trxn_id'] = $invoice->getId();
-    civicrm_api3('Contribution', 'create', ['id' => $this->getContributionId($params), 'trxn_id' => $invoice->getId()]);
-    $pendingStatusId = CRM_Core_PseudoConstant::getKey('CRM_Contribute_BAO_Contribution', 'contribution_status_id', 'Pending');
-    $params['payment_status_id'] = $pendingStatusId;
+    // Success!
+    // For contribution workflow we have a contributionId so we can set parameters directly.
+    // For events/membership workflow we have to return the parameters and they might get set...
+    $newParams['trxn_id'] = $invoice->getId();
+    $newParams['payment_status_id'] = CRM_Core_PseudoConstant::getKey('CRM_Contribute_BAO_Contribution', 'contribution_status_id', 'Pending');
+    // $newParams['fee_amount'] = ...
+    // $newParams['net_amount'] = ...
+
+    if ($this->getContributionId($params)) {
+      $newParams['id'] = $this->getContributionId($params);
+      civicrm_api3('Contribution', 'create', $newParams);
+      unset($newParams['id']);
+    }
+    $params = array_merge($params, $newParams);
+
     return $params;
+
   }
 
   /**

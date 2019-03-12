@@ -1,7 +1,7 @@
 <?php
 /**
  * Shared payment functions that should one day be migrated to CiviCRM core
- * Version 1.0
+ * Version 20190311
  */
 
 trait CRM_Core_Payment_BitpayTrait {
@@ -68,7 +68,12 @@ trait CRM_Core_Payment_BitpayTrait {
    * @return mixed
    */
   protected function getContributionId($params) {
-    return $params['contributionID'];
+    /*
+     * contributionID is set in the contribution workflow
+     * We do NOT have a contribution ID for event and membership payments as they are created after payment!
+     * See: https://github.com/civicrm/civicrm-core/pull/13763 (for events)
+     */
+    return CRM_Utils_Array::value('contributionID', $params);
   }
 
   /**
