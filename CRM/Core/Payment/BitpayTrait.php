@@ -1,10 +1,13 @@
 <?php
 /**
  * Shared payment functions that should one day be migrated to CiviCRM core
- * Version 20190311
  */
 
 trait CRM_Core_Payment_BitpayTrait {
+  /**********************
+   * Version 20190313
+   *********************/
+
   /**
    * Get the billing email address
    *
@@ -43,6 +46,7 @@ trait CRM_Core_Payment_BitpayTrait {
    * @return int ContactID
    */
   protected function getContactId($params) {
+    // contactID is set by: membership payment workflow
     $contactId = CRM_Utils_Array::value('contactID', $params,
       CRM_Utils_Array::value('contact_id', $params,
         CRM_Utils_Array::value('cms_contactID', $params,

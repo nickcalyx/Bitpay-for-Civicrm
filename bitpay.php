@@ -242,4 +242,17 @@ function _bitpay_civicrm_cleanupOldExtension() {
     $errors[] = 'Could not get PaymentProcessorType for Payment_BitPay - it is not installed';
   }
 
+  // Clear caches
+  // Access config object.
+  $config = CRM_Core_Config::singleton();
+
+  // Clear database cache.
+  CRM_Core_Config::clearDBCache();
+
+  // Cleanup the "templates_c" directory.
+  $config->cleanup( 1, TRUE );
+
+  // Cleanup the session object.
+  $session = CRM_Core_Session::singleton();
+  $session->reset( 1 );
 }

@@ -23,3 +23,10 @@ Go to https://test.bitpay.com/dashboard/merchant/api-tokens and create a new API
     * payment_processor_id={id}
     * pairingkey={pairing key you created at bitpay earlier}
 
+## Troubleshooting
+If you have trouble installing after uninstalling uk.co.circleinteractive.payment.bitcoin you can try running:
+
+API `bitpay.checkinstall`
+
+This will check that the new extension has everything it needs to function.
+
