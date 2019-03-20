@@ -256,3 +256,10 @@ function _bitpay_civicrm_cleanupOldExtension() {
   $session = CRM_Core_Session::singleton();
   $session->reset( 1 );
 }
+
+/**
+ * Implements hook_civicrm_check().
+ */
+function bitpay_civicrm_check(&$messages) {
+  CRM_Bitpay_Utils_Check_Requirements::check($messages);
+}
