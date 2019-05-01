@@ -146,10 +146,6 @@ function bitpay_civicrm_entityTypes(&$entityTypes) {
  * @param CRM_Core_Form $form
  */
 function bitpay_civicrm_buildForm($formName, &$form) {
-  if ($form->isSubmitted()) {
-    return;
-  }
-
   if (!isset($form->_paymentProcessor)) {
     return;
   }
@@ -172,7 +168,18 @@ function bitpay_civicrm_buildForm($formName, &$form) {
     case 'CRM_Contribute_Form_Contribution_ThankYou':
       // Contribution /Event Thankyou form
       // Add the bitpay invoice handling
-      $form->assign('bitpayTrxnId', $form->_trxnId);
+      $contributionParams = [
+        'contact_id' => $form->_contactID,
+        'total_amount' => $form->_amount,
+        'contribution_test' => '',
+        'options' => ['limit' => 1, 'sort' => ['id DESC']],
+      ];
+      $trxnId = isset($form->trxnId) ? $form->trxnId : NULL;
+      if (empty($trxnId)) {
+        $contribution = civicrm_api3('Contribution', 'get', $contributionParams);
+        $trxnId = CRM_Utils_Array::first($contribution['values'])['trxn_id'];
+      }
+      $form->assign('bitpayTrxnId', $trxnId);
       $form->assign('bitpayTestMode', $paymentProcessor['is_test']);
       CRM_Core_Region::instance('contribution-thankyou-billing-block')
         ->update('default', ['disabled' => TRUE]);
