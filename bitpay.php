@@ -165,7 +165,11 @@ function bitpay_civicrm_buildForm($formName, &$form) {
       break;
 
     case 'CRM_Event_Form_Registration_ThankYou':
+      $billingBlockRegion = 'event-thankyou-billing-block';
     case 'CRM_Contribute_Form_Contribution_ThankYou':
+      if (!isset($billingBlockRegion)) {
+        $billingBlockRegion = 'contribution-thankyou-billing-block';
+      }
       // Contribution /Event Thankyou form
       // Add the bitpay invoice handling
       $contributionParams = [
@@ -181,9 +185,9 @@ function bitpay_civicrm_buildForm($formName, &$form) {
       }
       $form->assign('bitpayTrxnId', $trxnId);
       $form->assign('bitpayTestMode', $paymentProcessor['is_test']);
-      CRM_Core_Region::instance('contribution-thankyou-billing-block')
+      CRM_Core_Region::instance($billingBlockRegion)
         ->update('default', ['disabled' => TRUE]);
-      CRM_Core_Region::instance('contribution-thankyou-billing-block')
+      CRM_Core_Region::instance($billingBlockRegion)
         ->add(['template' => 'Bitpaycontribution-thankyou-billing-block.tpl']);
       break;
   }
