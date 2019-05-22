@@ -14,5 +14,5 @@ markdown_extensions:
   - pymdownx.mark
 
 pages:
-- Setup and Configuration: setup.md
+- Setup and Configuration: index.md
 - Release Notes: release/release_notes.md
