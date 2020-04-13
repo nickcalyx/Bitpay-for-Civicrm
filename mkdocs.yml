@@ -1,6 +1,7 @@
 site_name: Bitpay payment processor
 repo_url: https://github.com/nickcalyx/Bitpay-for-Civicrm
-theme: material
+theme: 
+  name: material
 markdown_extensions:
   - attr_list
   - admonition
