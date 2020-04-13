@@ -13,6 +13,6 @@ markdown_extensions:
   - pymdownx.betterem
   - pymdownx.mark
 
-pages:
+nav:
 - Setup and Configuration: index.md
 - Release Notes: release/release_notes.md
