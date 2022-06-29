@@ -30,7 +30,7 @@ private static $installed = array (
     'aliases' => 
     array (
     ),
-    'reference' => '91dcc6e274f967df6358c0e5dfe1a21a51f0b2a2',
+    'reference' => 'c88f4cb0cce4004204204ed7815feaf7624d8077',
     'name' => '__root__',
   ),
   'versions' => 
@@ -42,7 +42,7 @@ private static $installed = array (
       'aliases' => 
       array (
       ),
-      'reference' => '91dcc6e274f967df6358c0e5dfe1a21a51f0b2a2',
+      'reference' => 'c88f4cb0cce4004204204ed7815feaf7624d8077',
     ),
     'bitpay/php-client' => 
     array (
@@ -55,12 +55,12 @@ private static $installed = array (
     ),
     'psr/container' => 
     array (
-      'pretty_version' => '1.1.2',
-      'version' => '1.1.2.0',
+      'pretty_version' => '1.1.1',
+      'version' => '1.1.1.0',
       'aliases' => 
       array (
       ),
-      'reference' => '513e0666f7216c7459170d56df27dfcefe1689ea',
+      'reference' => '8622567409010282b7aeebe4bb841fe98b58dcaf',
     ),
     'psr/container-implementation' => 
     array (
