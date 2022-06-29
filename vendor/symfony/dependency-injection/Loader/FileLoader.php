@@ -48,10 +48,10 @@ abstract class FileLoader extends BaseFileLoader
     public function registerClasses(Definition $prototype, $namespace, $resource, $exclude = null)
     {
         if ('\\' !== substr($namespace, -1)) {
-            throw new InvalidArgumentException(sprintf('Namespace prefix must end with a "\\": %s.', $namespace));
+            throw new InvalidArgumentException(sprintf('Namespace prefix must end with a "\\": "%s".', $namespace));
         }
         if (!preg_match('/^(?:[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*+\\\\)++$/', $namespace)) {
-            throw new InvalidArgumentException(sprintf('Namespace is not a valid PSR-4 prefix: %s.', $namespace));
+            throw new InvalidArgumentException(sprintf('Namespace is not a valid PSR-4 prefix: "%s".', $namespace));
         }
 
         $classes = $this->findClasses($namespace, $resource, $exclude);
@@ -86,11 +86,12 @@ abstract class FileLoader extends BaseFileLoader
     /**
      * Registers a definition in the container with its instanceof-conditionals.
      *
-     * @param string     $id
-     * @param Definition $definition
+     * @param string $id
      */
     protected function setDefinition($id, Definition $definition)
     {
+        $this->container->removeBindings($id);
+
         if ($this->isLoadingInstanceof) {
             if (!$definition instanceof ChildDefinition) {
                 throw new InvalidArgumentException(sprintf('Invalid type definition "%s": ChildDefinition expected, "%s" given.', $id, \get_class($definition)));
@@ -109,7 +110,7 @@ abstract class FileLoader extends BaseFileLoader
         $excludePrefix = null;
         if ($excludePattern) {
             $excludePattern = $parameterBag->unescapeValue($parameterBag->resolveValue($excludePattern));
-            foreach ($this->glob($excludePattern, true, $resource) as $path => $info) {
+            foreach ($this->glob($excludePattern, true, $resource, true) as $path => $info) {
                 if (null === $excludePrefix) {
                     $excludePrefix = $resource->getPrefix();
                 }
@@ -128,7 +129,7 @@ abstract class FileLoader extends BaseFileLoader
                 $prefixLen = \strlen($resource->getPrefix());
 
                 if ($excludePrefix && 0 !== strpos($excludePrefix, $resource->getPrefix())) {
-                    throw new InvalidArgumentException(sprintf('Invalid "exclude" pattern when importing classes for "%s": make sure your "exclude" pattern (%s) is a subset of the "resource" pattern (%s)', $namespace, $excludePattern, $pattern));
+                    throw new InvalidArgumentException(sprintf('Invalid "exclude" pattern when importing classes for "%s": make sure your "exclude" pattern (%s) is a subset of the "resource" pattern (%s).', $namespace, $excludePattern, $pattern));
                 }
             }
 
@@ -148,12 +149,7 @@ abstract class FileLoader extends BaseFileLoader
             try {
                 $r = $this->container->getReflectionClass($class);
             } catch (\ReflectionException $e) {
-                $classes[$class] = sprintf(
-                    'While discovering services from namespace "%s", an error was thrown when processing the class "%s": "%s".',
-                    $namespace,
-                    $class,
-                    $e->getMessage()
-                );
+                $classes[$class] = $e->getMessage();
                 continue;
             }
             // check to make sure the expected class exists

@@ -51,12 +51,17 @@ class ComposerStaticInit69d9591de863ddeb5178907476e9e7e9
         0 => __DIR__ . '/..' . '/bitpay/php-client/src',
     );
 
+    public static $classMap = array (
+        'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
+    );
+
     public static function getInitializer(ClassLoader $loader)
     {
         return \Closure::bind(function () use ($loader) {
             $loader->prefixLengthsPsr4 = ComposerStaticInit69d9591de863ddeb5178907476e9e7e9::$prefixLengthsPsr4;
             $loader->prefixDirsPsr4 = ComposerStaticInit69d9591de863ddeb5178907476e9e7e9::$prefixDirsPsr4;
             $loader->fallbackDirsPsr4 = ComposerStaticInit69d9591de863ddeb5178907476e9e7e9::$fallbackDirsPsr4;
+            $loader->classMap = ComposerStaticInit69d9591de863ddeb5178907476e9e7e9::$classMap;
 
         }, null, ClassLoader::class);
     }

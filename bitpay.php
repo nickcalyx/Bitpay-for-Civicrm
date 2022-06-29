@@ -1,7 +1,10 @@
 <?php
 
 require_once 'bitpay.civix.php';
-require_once __DIR__.'/vendor/autoload.php';
+$autoload = __DIR__ . '/vendor/autoload.php';
+if (file_exists($autoload)) {
+  require_once $autoload;
+}
 
 use CRM_Bitpay_ExtensionUtil as E;
 
@@ -121,10 +124,13 @@ function bitpay_civicrm_buildForm($formName, &$form) {
         'contribution_test' => '',
         'options' => ['limit' => 1, 'sort' => ['id DESC']],
       ];
-      $trxnId = isset($form->trxnId) ? $form->trxnId : NULL;
+      $trxnId = $form->trxnId ?? $form->_trxnId ?? NULL;
       if (empty($trxnId)) {
         $contribution = civicrm_api3('Contribution', 'get', $contributionParams);
         $trxnId = CRM_Utils_Array::first($contribution['values'])['trxn_id'];
+        if (empty($trxnId)) {
+          \Civi::log('bitpay')->error('bitpay buildForm: Could not find trxnId');
+        }
       }
       $form->assign('bitpayTrxnId', $trxnId);
       $form->assign('bitpayTestMode', $paymentProcessor['is_test']);
@@ -215,5 +221,6 @@ function _bitpay_civicrm_cleanupOldExtension() {
  * Implements hook_civicrm_check().
  */
 function bitpay_civicrm_check(&$messages) {
-  CRM_Bitpay_Utils_Check_Requirements::check($messages);
+  $checks = new CRM_Bitpay_Check($messages);
+  $messages = $checks->checkRequirements();
 }

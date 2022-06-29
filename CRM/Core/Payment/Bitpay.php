@@ -1,19 +1,21 @@
 <?php
 
+use Bitpay\Buyer;
+use Bitpay\Invoice;
+use CRM_Bitpay_ExtensionUtil as E;
+use Civi\Payment\PropertyBag;
+
 /*
  * Payment Processor class for Bitpay
  */
-
 class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
 
-  use CRM_Core_Payment_BitpayTrait;
-
-  public static $className = 'Payment_Bitpay';
+  use CRM_Core_Payment_MJWTrait;
 
   /**
    * @var CRM_Bitpay_Client The Bitpay client object
    */
-  private $_client = NULL;
+  private $client = NULL;
 
   /**
    * Constructor
@@ -25,8 +27,7 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
    */
   public function __construct($mode, &$paymentProcessor) {
     $this->_paymentProcessor = $paymentProcessor;
-    $this->_processorName = ts('Bitpay');
-    $this->_client = new CRM_Bitpay_Client($this->_paymentProcessor);
+    $this->client = new CRM_Bitpay_Client($this->_paymentProcessor);
   }
 
   /**
@@ -121,7 +122,7 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
    *
    * Payment processors should set payment_status_id and trxn_id (if available).
    *
-   * @param array $params
+   * @param array|PropertyBag $paymentParams
    *   Assoc array of input parameters for this transaction.
    *
    * @param string $component
@@ -132,17 +133,27 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
    * @throws \CRM_Core_Exception
    * @throws \CiviCRM_API3_Exception
    */
-  public function doPayment(&$params, $component = 'contribute') {
+  public function doPayment(&$paymentParams, $component = 'contribute') {
     // Get the bitpay client object
-    $client = $this->_client->getClient();
+    $client = $this->client->getClient();
+
+    /* @var \Civi\Payment\PropertyBag $propertyBag */
+    $propertyBag = PropertyBag::cast($paymentParams);
+
+    $zeroAmountPayment = $this->processZeroAmountPayment($propertyBag);
+    if ($zeroAmountPayment) {
+      return $zeroAmountPayment;
+    }
+    $propertyBag = $this->beginDoPayment($propertyBag);
 
     /**
      * This is where we will start to create an Invoice object, make sure to check
      * the InvoiceInterface for methods that you can use.
      */
-    $invoice = new \Bitpay\Invoice();
-    $buyer = new \Bitpay\Buyer();
-    $buyer->setEmail($this->getBillingEmail($params, $this->getContactId($params)));
+    $invoice = new Invoice();
+    $buyer = new Buyer();
+    $email = $this->getBillingEmail($paymentParams, $propertyBag->getContactID());
+    $buyer->setEmail($email);
     // Add the buyers info to invoice
     $invoice->setBuyer($buyer);
     /**
@@ -150,9 +161,9 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
      */
     $item = new \Bitpay\Item();
     $item
-      ->setCode(CRM_Utils_Array::value('item_name', $params))
-      ->setDescription($params['description'])
-      ->setPrice($this->getAmount($params));
+      ->setCode($paymentParams['item_name'] ?? NULL)
+      ->setDescription($paymentParams['description'])
+      ->setPrice($this->getAmount($paymentParams));
     $invoice->setItem($item);
     /**
      * BitPay supports multiple different currencies. Most shopping cart applications
@@ -162,10 +173,10 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
      *
      * @see https://test.bitpay.com/bitcoin-exchange-rates for supported currencies
      */
-    $invoice->setCurrency(new \Bitpay\Currency($this->getCurrency($params)));
+    $invoice->setCurrency(new \Bitpay\Currency($propertyBag->getCurrency()));
     // Configure the rest of the invoice
     $invoice
-      ->setOrderId($params['contributionID'])
+      ->setOrderId($propertyBag->getContributionID())
       // You will receive IPN's at this URL, should be HTTPS for security purposes!
       ->setNotificationUrl($this->getNotifyUrl());
     /**
@@ -180,28 +191,27 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
       $response = $client->getResponse();
       $msg .= (string) $request.PHP_EOL.PHP_EOL.PHP_EOL;
       $msg .= (string) $response.PHP_EOL.PHP_EOL;
-      Civi::log()->debug($msg);
+      \Civi::log('bitpay')->debug($msg);
       Throw new CRM_Core_Exception($msg);
     }
-    Civi::log()->debug('invoice created: ' . $invoice->getId(). '" url: ' . $invoice->getUrl() . ' Verbose details: ' . print_r($invoice, TRUE));
+    \Civi::log('bitpay')->debug('invoice created: ' . $invoice->getId(). '" url: ' . $invoice->getUrl() . ' Verbose details: ' . print_r($invoice, TRUE));
 
     // Success!
     // For contribution workflow we have a contributionId so we can set parameters directly.
     // For events/membership workflow we have to return the parameters and they might get set...
-    $newParams['trxn_id'] = $invoice->getId();
-    $newParams['payment_status_id'] = CRM_Core_PseudoConstant::getKey('CRM_Contribute_BAO_Contribution', 'contribution_status_id', 'Pending');
-    // $newParams['fee_amount'] = ...
-    // $newParams['net_amount'] = ...
+    $this->setPaymentProcessorTrxnID($invoice->getId());
+    $returnParams = [];
+    // We always return "Pending" because payment is Completed later by webhook.
+    $this->setStatusPaymentPending($returnParams);
 
-    if ($this->getContributionId($params)) {
-      $newParams['id'] = $this->getContributionId($params);
-      civicrm_api3('Contribution', 'create', $newParams);
-      unset($newParams['id']);
+    // For a single charge there is no invoice, we set OrderID to the TrxnID.
+    if (empty($this->getPaymentProcessorOrderID())) {
+      $this->setPaymentProcessorOrderID($this->getPaymentProcessorTrxnID());
     }
-    $params = array_merge($params, $newParams);
 
-    return $params;
-
+    // For contribution workflow we have a contributionId so we can set parameters directly.
+    // For events/membership workflow we have to return the parameters and they might get set...
+    return $this->endDoPayment($returnParams);
   }
 
   /**
@@ -225,13 +235,16 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
    * @throws \CRM_Core_Exception
    * @throws \CiviCRM_API3_Exception
    */
-  public static function handlePaymentNotification() {
+  public function handlePaymentNotification() {
+    // Set default http response to 200
+    http_response_code(200);
     $dataRaw = file_get_contents("php://input");
     $data = json_decode($dataRaw);
-    $ipnClass = new CRM_Core_Payment_BitpayIPN($data);
-    if ($ipnClass->main()) {
-      //Respond with HTTP 200, so BitPay knows the IPN has been received correctly
-      http_response_code(200);
+    $ipnClass = new CRM_Core_Payment_BitpayIPN($this);
+    $ipnClass->setData($data);
+    $ipnClass->onReceiveWebhook();
+    if (!$ipnClass->main()) {
+      http_response_code(400);
     }
   }
 

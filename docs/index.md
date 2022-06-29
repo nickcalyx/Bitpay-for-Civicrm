@@ -4,12 +4,12 @@
 
 1. Enable the bitpay extension in CiviCRM.
 1. Go to the CiviCRM system status page and ensure that there are no missing requirements for the bitpay extension:
-![requirements](/docs/images/bitpay_missingrequirements.png)
+![requirements](images/bitpay_missingrequirements.png)
 
 #### Create an account
 If you don't already have a bitpay account:
 
-##### Live: https://bitpay.com  
+##### Live: https://bitpay.com
 1. Create an account.
 1. Verify the account.
 

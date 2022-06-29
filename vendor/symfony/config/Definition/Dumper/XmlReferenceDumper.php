@@ -42,10 +42,9 @@ class XmlReferenceDumper
     }
 
     /**
-     * @param NodeInterface $node
-     * @param int           $depth
-     * @param bool          $root      If the node is the root node
-     * @param string        $namespace The namespace of the node
+     * @param int    $depth
+     * @param bool   $root      If the node is the root node
+     * @param string $namespace The namespace of the node
      */
     private function writeNode(NodeInterface $node, $depth = 0, $root = false, $namespace = null)
     {
@@ -194,7 +193,7 @@ class XmlReferenceDumper
                 $commentDepth = $depth + 4 + \strlen($attrName) + 2;
                 $commentLines = explode("\n", $comment);
                 $multiline = (\count($commentLines) > 1);
-                $comment = implode(PHP_EOL.str_repeat(' ', $commentDepth), $commentLines);
+                $comment = implode(\PHP_EOL.str_repeat(' ', $commentDepth), $commentLines);
 
                 if ($multiline) {
                     $this->writeLine('<!--', $depth);
@@ -268,7 +267,7 @@ class XmlReferenceDumper
         $indent = \strlen($text) + $indent;
         $format = '%'.$indent.'s';
 
-        $this->reference .= sprintf($format, $text).PHP_EOL;
+        $this->reference .= sprintf($format, $text).\PHP_EOL;
     }
 
     /**
@@ -307,5 +306,7 @@ class XmlReferenceDumper
         if (\is_array($value)) {
             return implode(',', $value);
         }
+
+        return '';
     }
 }

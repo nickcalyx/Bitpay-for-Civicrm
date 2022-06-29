@@ -2,16 +2,11 @@
 
 Accept payments using bitpay (https://bitpay.com/) through CiviCRM.
 
-The invoice pops up on the contribution thankyou page and allows you to pay in Bitcoin or Bitcoin Cash. 
+The invoice pops up on the contribution thankyou page and allows you to pay in Bitcoin or Bitcoin Cash.
 
 The extension is licensed under [AGPL-3.0](LICENSE.txt).
 
-![Screenshot](/docs/images/bitpay_invoicewaiting.png)
-
-## Requirements
-
-* PHP v7.0+
-* CiviCRM 5.10
+![Screenshot](docs/images/bitpay_invoicewaiting.png)
 
 ## Installation
 

@@ -16,7 +16,7 @@ use Symfony\Component\DependencyInjection\ParameterBag\FrozenParameterBag;
  */
 class Symfony_DI_PhpDumper_Test_Inline_Self_Ref extends Container
 {
-    private $parameters;
+    private $parameters = [];
     private $targetDirs = [];
 
     public function __construct()
@@ -69,7 +69,7 @@ class Symfony_DI_PhpDumper_Test_Inline_Self_Ref extends Container
         $b = new \App\Baz($a);
         $b->bar = $a;
 
-        $this->services['App\Foo'] = $instance = new \App\Foo($b);
+        $this->services['App\\Foo'] = $instance = new \App\Foo($b);
 
         $a->foo = $instance;
 

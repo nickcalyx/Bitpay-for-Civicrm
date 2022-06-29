@@ -38,7 +38,7 @@ class CRM_Bitpay_Keys {
     $paymentProcessor = civicrm_api3('PaymentProcessor', 'getsingle', [
       'id' => $processorId,
     ]);
-    if ($paymentProcessor['class_name'] !== CRM_Core_Payment_Bitpay::$className) {
+    if ($paymentProcessor['class_name'] !== 'Payment_Bitpay') {
       $msg = "Payment Processor ID {$processorId} is not of type Bitpay!";
       Civi::log()->warning($msg);
       Throw new CRM_Core_Exception($msg);

@@ -1,5 +1,5 @@
 Package: bitpay
-Copyright (C) 2021, Matthew Wire (MJW Consulting) <mjw@mjwconsult.co.uk>
+Copyright (C) 2022, Matthew Wire (MJW Consulting) <mjw@mjwconsult.co.uk>
 Licensed under the GNU Affero Public License 3.0 (below).
 
 -------------------------------------------------------------------------------
