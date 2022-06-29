@@ -176,7 +176,7 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
     $invoice->setCurrency(new \Bitpay\Currency($propertyBag->getCurrency()));
     // Configure the rest of the invoice
     $invoice
-      ->setOrderId($propertyBag->getContributionID())
+      ->setOrderId($propertyBag->getInvoiceID())
       // You will receive IPN's at this URL, should be HTTPS for security purposes!
       ->setNotificationUrl($this->getNotifyUrl());
     /**
@@ -242,10 +242,40 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
     $data = json_decode($dataRaw);
     $ipnClass = new CRM_Core_Payment_BitpayIPN($this);
     $ipnClass->setData($data);
-    $ipnClass->onReceiveWebhook();
-    if (!$ipnClass->main()) {
+    if (!$ipnClass->onReceiveWebhook()) {
       http_response_code(400);
     }
+  }
+
+  /**
+   * @param int $paymentProcessorID
+   *   The actual payment processor ID that should be used.
+   * @param $rawData
+   *   The "raw" data, eg. a JSON string that is saved in the civicrm_system_log.context table
+   * @param bool $verifyRequest
+   *   Should we verify the request data with the payment processor (eg. retrieve it again?).
+   * @param null|int $emailReceipt
+   *   Override setting of email receipt if set to 0, 1
+   *
+   * @return bool
+   * @throws \API_Exception
+   * @throws \Civi\API\Exception\UnauthorizedException
+   * @throws \Civi\Payment\Exception\PaymentProcessorException
+   */
+  public static function processPaymentNotification($paymentProcessorID, $rawData, $verifyRequest = TRUE, $emailReceipt = NULL) {
+    // Set default http response to 200
+    http_response_code(200);
+
+    $event = json_decode($rawData);
+    $paymentProcessorObject = \Civi\Payment\System::singleton()->getById($paymentProcessorID);
+    if (!($paymentProcessorObject instanceof CRM_Core_Payment_Bitpay)) {
+      throw new \Civi\Payment\Exception\PaymentProcessorException('Failed to get payment processor');
+    }
+    $ipnClass = new CRM_Core_Payment_BitpayIPN($paymentProcessorObject);
+    if (isset($emailReceipt)) {
+      $ipnClass->setSendEmailReceipt($emailReceipt);
+    }
+    return $ipnClass->processWebhookEvent($event)->ok;
   }
 
 }

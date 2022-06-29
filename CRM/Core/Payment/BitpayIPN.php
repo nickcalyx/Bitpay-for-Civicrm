@@ -44,19 +44,23 @@ class CRM_Core_Payment_BitpayIPN {
    * @return bool
    */
   public function onReceiveWebhook(): bool {
-    PaymentprocessorWebhook::create(FALSE)
-      ->addValue('payment_processor_id', $this->_paymentProcessor->getID())
-      ->addValue('trigger', $this->invoice->getStatus())
-      ->addValue('identifier', $this->invoice->getOrderId())
-      ->addValue('event_id', $this->invoice->getId())
-      ->addValue('data', $this->getData())
-      ->execute();
+    $event = $this->getData();
+    \Civi::log('bitpay')->debug('event: ' . print_r($event));
+
+    $webhook = PaymentprocessorWebhook::create(FALSE)
+      ->addValue('payment_processor_id', $this->getPaymentProcessor()->getID())
+      ->addValue('trigger', $event->status)
+      ->addValue('identifier', $event->orderId)
+      ->addValue('event_id', $event->id)
+      ->addValue('data', json_encode($event))
+      ->execute()
+      ->first();
 
     $processingResult = $this->processWebhookEvent($this->getData());
     // Update the stored webhook event.
     PaymentprocessorWebhook::update(FALSE)
       ->setCheckPermissions(FALSE) // Remove line when minversion>=5.29
-      ->addWhere('id', '=', $this->invoice->getId())
+      ->addWhere('id', '=', $webhook['id'])
       ->addValue('status', $processingResult->ok ? 'success' : 'error')
       ->addValue('message', preg_replace('/^(.{250}).*/su', '$1 ...', $processingResult->message))
       ->addValue('processed_date', 'now')
@@ -79,7 +83,7 @@ class CRM_Core_Payment_BitpayIPN {
     $return = (object) ['message' => NULL, 'ok' => FALSE, 'exception' => NULL];
     // This event ID is only used for logging messages.
     // Get the bitpay client
-    $this->client = new CRM_Bitpay_Client($this->getPaymentProcessor());
+    $this->client = new CRM_Bitpay_Client($this->getPaymentProcessor()->getPaymentProcessor());
     $client = $this->client->getClient();
 
     // Now fetch the invoice from BitPay
@@ -92,15 +96,11 @@ class CRM_Core_Payment_BitpayIPN {
     $invoiceStatus = $invoice->getStatus();
     $invoiceExceptionStatus = $invoice->getExceptionStatus();
     $invoicePrice = $invoice->getPrice();
-    \Civi::log('bitpay')->debug("IPN received for BitPay invoice ".$invoiceId." . Status = " .$invoiceStatus." / exceptionStatus = " . $invoiceExceptionStatus." Price = ". $invoicePrice. "\n");
+    \Civi::log('bitpay')->debug("IPN received for BitPay invoice ".$invoiceId." . Status = " .$invoiceStatus." / exceptionStatus = " . $invoiceExceptionStatus."; Price = ". $invoicePrice. "\n");
     \Civi::log('bitpay')->debug("Raw IPN data: ". print_r($event, TRUE));
 
     try {
-      $this->main();
-      $method = 'do' . ucfirst($event->resource_type) . ucfirst($event->action);
-      $return->message = $this->$method($event);
-      $return->ok = TRUE;
-      \Civi::log('bitpay')->error($return->message);
+      $return->ok = $this->main();
     }
     catch (Exception $e) {
       $return->message = "FAILED: Had to skip webhook event. Reason: " . $e->getMessage(). "\n" . $e->getTraceAsString();
@@ -130,7 +130,7 @@ class CRM_Core_Payment_BitpayIPN {
       case \Bitpay\Invoice::STATUS_EXPIRED:
         // Mark as cancelled
         $this->updateContributionFailed([
-          'contribution_id' => $this->getContributionId(),
+          'contribution_id' => $this->getContribution()['id'],
           'order_reference' => $this->invoice->getId(),
           'cancel_reason' => E::ts('Expired'),
         ]);
@@ -139,7 +139,7 @@ class CRM_Core_Payment_BitpayIPN {
       case \Bitpay\Invoice::STATUS_INVALID:
         // Mark as failed
         $this->updateContributionFailed([
-          'contribution_id' => $this->getContributionId(),
+          'contribution_id' => $this->getContribution()['id'],
           'order_reference' => $this->invoice->getId(),
           'cancel_reason' => E::ts('Invalid'),
         ]);
@@ -153,12 +153,13 @@ class CRM_Core_Payment_BitpayIPN {
       case \Bitpay\Invoice::STATUS_CONFIRMED:
         // Mark payment as completed
 
+        $contribution = $this->getContribution();
         $this->updateContributionCompleted([
-          'contribution_id' => $this->getContributionId(),
+          'contribution_id' => $contribution['id'],
           'trxn_date' => date('YmdHis'),
           'order_reference' => $this->invoice->getId(),
           'trxn_id' => $this->invoice->getId(),
-          'total_amount' => $this->invoice->getAmountPaid(),
+          'total_amount' => $contribution['total_amount'],
         ]);
         return TRUE;
 
@@ -170,15 +171,28 @@ class CRM_Core_Payment_BitpayIPN {
   }
 
   /**
-   * @return int Contribution ID
+   * @return array Contribution
    */
-  private function getContributionId(): int {
+  private function getContribution(): array {
     try {
-      return (int) civicrm_api3('Contribution', 'getvalue', [
-        'return' => 'id',
-        'trxn_id' => $this->invoice->getId(),
-        'contribution_test' => $this->_paymentProcessor['is_test'],
-      ]);
+      // First try retrieving by the order ID (invoice ID) that we set in doPayment()
+      $contribution = \Civi\Api4\Contribution::get(FALSE)
+        ->addWhere('invoice_id', '=', $this->invoice->getOrderId())
+        ->addWhere('is_test', 'IN', [TRUE, FALSE])
+        ->execute()
+        ->first();
+      if (!empty($contribution)) {
+        return $contribution;
+      }
+      // Otherwise try by trxn_id (probably won't work because Pending contribution probably didn't get trxn_id set)
+      $contribution = \Civi\Api4\Contribution::get(FALSE)
+        ->addWhere('trxn_id', '=', $this->invoice->getId())
+        ->addWhere('is_test', 'IN', [TRUE, FALSE])
+        ->execute()
+        ->first();
+      if (!empty($contribution)) {
+        return $contribution;
+      }
     }
     catch (Exception $e) {
       $errorMessage = 'BitpayIPN Exception: Error: ' . $e->getMessage();
