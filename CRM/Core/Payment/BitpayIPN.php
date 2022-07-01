@@ -56,11 +56,22 @@ class CRM_Core_Payment_BitpayIPN {
       ->execute()
       ->first();
 
-    $processingResult = $this->processWebhookEvent($this->getData());
+    return $this->processQueuedWebhookEvent($this->getData());
+  }
+
+  /**
+   * Process a single queued event and update it.
+   *
+   * Returns TRUE/FALSE for success.
+   */
+  public function processQueuedWebhookEvent(array $webhookEvent) :bool {
+    $event = json_decode($webhookEvent['data']);
+
+    $processingResult = $this->processWebhookEvent($event);
     // Update the stored webhook event.
     PaymentprocessorWebhook::update(FALSE)
       ->setCheckPermissions(FALSE) // Remove line when minversion>=5.29
-      ->addWhere('id', '=', $webhook['id'])
+      ->addWhere('id', '=', $webhookEvent['id'])
       ->addValue('status', $processingResult->ok ? 'success' : 'error')
       ->addValue('message', preg_replace('/^(.{250}).*/su', '$1 ...', $processingResult->message))
       ->addValue('processed_date', 'now')
