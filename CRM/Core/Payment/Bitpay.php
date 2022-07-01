@@ -253,7 +253,7 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
    *
    * The array parameter contains a row of PaymentprocessorWebhook data, which represents a single GC event
    *
-   * Return TRUE for success, FALSE if there's a problemh
+   * Return TRUE for success, FALSE if there's a problem
    */
   public function processWebhookEvent(array $webhookEvent) :bool {
     $handler = new CRM_Core_Payment_BitpayIPN($this);

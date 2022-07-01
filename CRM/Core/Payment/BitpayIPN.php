@@ -70,7 +70,6 @@ class CRM_Core_Payment_BitpayIPN {
     $processingResult = $this->processWebhookEvent($event);
     // Update the stored webhook event.
     PaymentprocessorWebhook::update(FALSE)
-      ->setCheckPermissions(FALSE) // Remove line when minversion>=5.29
       ->addWhere('id', '=', $webhookEvent['id'])
       ->addValue('status', $processingResult->ok ? 'success' : 'error')
       ->addValue('message', preg_replace('/^(.{250}).*/su', '$1 ...', $processingResult->message))
