@@ -45,7 +45,7 @@ class CRM_Core_Payment_BitpayIPN {
    */
   public function onReceiveWebhook(): bool {
     $event = $this->getData();
-    \Civi::log('bitpay')->debug('event: ' . print_r($event));
+    \Civi::log('bitpay')->debug('event: ' . print_r($event, TRUE));
 
     $webhook = PaymentprocessorWebhook::create(FALSE)
       ->addValue('payment_processor_id', $this->getPaymentProcessor()->getID())
@@ -186,9 +186,10 @@ class CRM_Core_Payment_BitpayIPN {
           'total_amount' => $contribution['total_amount'],
         ]);
         if (empty($payment['count'])) {
+          \Civi::log()->debug($this->invoice->getInvoiceTime());
           $this->updateContributionCompleted([
             'contribution_id' => $contribution['id'],
-            'trxn_date' => date('YmdHis', $this->invoice->getInvoiceTime()),
+            'trxn_date' => $this->invoice->getInvoiceTime()->format('YmdHis'),
             'order_reference' => $this->invoice->getId(),
             'trxn_id' => $this->invoice->getId(),
             'total_amount' => $contribution['total_amount'],
