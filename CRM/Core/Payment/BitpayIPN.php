@@ -169,20 +169,32 @@ class CRM_Core_Payment_BitpayIPN {
         return TRUE;
 
       case \Bitpay\Invoice::STATUS_CONFIRMED:
-        // Mark payment as completed
+      case \Bitpay\Invoice::STATUS_COMPLETE:
+        // See https://bitpay.com/api/#notifications-webhooks-instant-payment-notifications
+        // We should listen for both CONFIRMED AND COMPLETE in case one is not sent
 
+        // Mark payment as completed
         $contribution = $this->getContribution();
-        $this->updateContributionCompleted([
+
+        $lock = Civi::lockManager()->acquire('data.contribute.contribution.' . $contribution['id']);
+        if (!$lock->isAcquired()) {
+          \Civi::log()->error('Could not acquire lock to record payment for contribution: ' . $contribution['id']);
+        }
+        $payment = civicrm_api3('Payment', 'get', [
           'contribution_id' => $contribution['id'],
-          'trxn_date' => date('YmdHis'),
-          'order_reference' => $this->invoice->getId(),
           'trxn_id' => $this->invoice->getId(),
           'total_amount' => $contribution['total_amount'],
         ]);
-        return TRUE;
-
-      case \Bitpay\Invoice::STATUS_COMPLETE:
-        // Don't do anything, confirmed is ok.
+        if (empty($payment['count'])) {
+          $this->updateContributionCompleted([
+            'contribution_id' => $contribution['id'],
+            'trxn_date' => date('YmdHis', $this->invoice->getInvoiceTime()),
+            'order_reference' => $this->invoice->getId(),
+            'trxn_id' => $this->invoice->getId(),
+            'total_amount' => $contribution['total_amount'],
+          ]);
+        }
+        $lock->release();
         return TRUE;
     }
     return TRUE;
