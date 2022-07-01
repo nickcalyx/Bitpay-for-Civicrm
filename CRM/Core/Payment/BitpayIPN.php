@@ -81,34 +81,42 @@ class CRM_Core_Payment_BitpayIPN {
    */
   public function processWebhookEvent($event) :StdClass {
     $return = (object) ['message' => NULL, 'ok' => FALSE, 'exception' => NULL];
-    // This event ID is only used for logging messages.
-    // Get the bitpay client
-    $this->client = new CRM_Bitpay_Client($this->getPaymentProcessor()->getPaymentProcessor());
-    $client = $this->client->getClient();
-
-    // Now fetch the invoice from BitPay
-    // This is needed, since the IPN does not contain any authentication
-    $invoice = $client->getInvoice($event->id);
-    $this->invoice = $invoice;
-
-    // FIXME: this is for debug, we could remove it...
-    $invoiceId = $invoice->getId();
-    $invoiceStatus = $invoice->getStatus();
-    $invoiceExceptionStatus = $invoice->getExceptionStatus();
-    $invoicePrice = $invoice->getPrice();
-    \Civi::log('bitpay')->debug("IPN received for BitPay invoice ".$invoiceId." . Status = " .$invoiceStatus." / exceptionStatus = " . $invoiceExceptionStatus."; Price = ". $invoicePrice. "\n");
-    \Civi::log('bitpay')->debug("Raw IPN data: ". print_r($event, TRUE));
 
     try {
+      // This event ID is only used for logging messages.
+      // Get the bitpay client
+      $this->client = new CRM_Bitpay_Client($this->getPaymentProcessor()->getPaymentProcessor());
+      $client = $this->client->getClient();
+
+      // Now fetch the invoice from BitPay
+      // This is needed, since the IPN does not contain any authentication
+      $invoice = $client->getInvoice($event->id);
+      $this->invoice = $invoice;
+
+      // FIXME: this is for debug, we could remove it...
+      $invoiceId = $invoice->getId();
+      $invoiceStatus = $invoice->getStatus();
+      $invoiceExceptionStatus = $invoice->getExceptionStatus();
+      $invoicePrice = $invoice->getPrice();
+      \Civi::log('bitpay')
+        ->debug("IPN received for BitPay invoice " . $invoiceId . " . Status = " . $invoiceStatus . " / exceptionStatus = " . $invoiceExceptionStatus . "; Price = " . $invoicePrice . "\n");
+      \Civi::log('bitpay')->debug("Raw IPN data: " . print_r($event, TRUE));
+
       $return->ok = $this->main();
+      // Add message to log with appropriate value
+      $this->setEventID('');
+    }
+    catch (\Civi\Paymentshared\WebhookEventIgnoredException $e) {
+        $return->message = $e->getMessage();
+        $return->ok = $e->isOk();
+        $return->exception = $e;
+        \Civi::log()->debug($return->message, $e->getCode());
     }
     catch (Exception $e) {
-      $return->message = "FAILED: Had to skip webhook event. Reason: " . $e->getMessage(). "\n" . $e->getTraceAsString();
-      $return->exception = $e;
-      \Civi::log('bitpay')->error($return->message);
+        $return->message = "FAILED: Had to skip webhook event. Reason: " . $e->getMessage() . "\n" . $e->getTraceAsString();
+        $return->exception = $e;
+        \Civi::log('bitpay')->error($return->message);
     }
-    // Add message to log with appropriate value
-    $this->setEventID('');
     return $return;
   }
 
