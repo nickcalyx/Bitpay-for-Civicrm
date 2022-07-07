@@ -47,7 +47,22 @@ class CRM_Core_Payment_BitpayIPN {
     $event = $this->getData();
     \Civi::log('bitpay')->debug('event: ' . print_r($event, TRUE));
 
-    $webhook = PaymentprocessorWebhook::create(FALSE)
+    // Bitpay sends a lot of duplicate webhooks.
+    // We only need to record / process once
+    $paymentProcessorWebhook = PaymentprocessorWebhook::get(FALSE)
+      ->addWhere('payment_processor_id', '=', $this->_paymentProcessor->getID())
+      ->addWhere('trigger', '=', $event->status)
+      ->addWhere('identifier', '=', $event->orderId)
+      ->addWhere('event_id', '=', $event->id)
+      ->execute()
+      ->first();
+    if (!empty($paymentProcessorWebhook)) {
+      \Civi::log('bitpay')->info("Duplicate webhook ignored: {$event->id}.{$event->status}");
+      return TRUE;
+    }
+
+    // Add webhook to queue
+    PaymentprocessorWebhook::create(FALSE)
       ->addValue('payment_processor_id', $this->getPaymentProcessor()->getID())
       ->addValue('trigger', $event->status)
       ->addValue('identifier', $event->orderId)
@@ -56,6 +71,7 @@ class CRM_Core_Payment_BitpayIPN {
       ->execute()
       ->first();
 
+    // Process the webhook
     return $this->processQueuedWebhookEvent($this->getData());
   }
 
