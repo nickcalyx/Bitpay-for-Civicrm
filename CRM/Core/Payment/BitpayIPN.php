@@ -4,6 +4,7 @@
  * Handle Bitpay Webhooks for recurring payments.
  */
 
+use Bitpay\InvoiceInterface;
 use Civi\Api4\PaymentprocessorWebhook;
 use CRM_Bitpay_ExtensionUtil as E;
 
@@ -110,13 +111,13 @@ class CRM_Core_Payment_BitpayIPN {
 
     try {
       // This event ID is only used for logging messages.
-      // Get the bitpay client
-      $this->client = new CRM_Bitpay_Client($this->getPaymentProcessor()->getPaymentProcessor());
-      $client = $this->client->getClient();
 
+      // Get the bitpay client
+      // $this->client = new CRM_Bitpay_Client($this->getPaymentProcessor()->getPaymentProcessor());
+      // $client = $this->client->getClient();
       // Now fetch the invoice from BitPay
       // This is needed, since the IPN does not contain any authentication
-      $invoice = $client->getInvoice($event->id);
+      /*$invoice = $client->getInvoice($event->id);
       $this->invoice = $invoice;
 
       // FIXME: this is for debug, we could remove it...
@@ -126,7 +127,12 @@ class CRM_Core_Payment_BitpayIPN {
       $invoicePrice = $invoice->getPrice();
       \Civi::log('bitpay')
         ->debug("IPN received for BitPay invoice " . $invoiceId . " . Status = " . $invoiceStatus . " / exceptionStatus = " . $invoiceExceptionStatus . "; Price = " . $invoicePrice . "\n");
-      \Civi::log('bitpay')->debug("Raw IPN data: " . print_r($event, TRUE));
+      \Civi::log('bitpay')->debug("Raw IPN data: " . print_r($event, TRUE));*/
+
+      // Use the payload we stored when the webhook was retrieved to build the invoice object
+      $this->invoice = new \Bitpay\Invoice();
+      $data = json_decode(json_encode($event), TRUE);
+      $this->fillInvoiceData($this->invoice, $data);
 
       $return->ok = $this->main();
       // Add message to log with appropriate value
@@ -202,7 +208,6 @@ class CRM_Core_Payment_BitpayIPN {
           'total_amount' => $contribution['total_amount'],
         ]);
         if (empty($payment['count'])) {
-          \Civi::log()->debug($this->invoice->getInvoiceTime());
           $this->updateContributionCompleted([
             'contribution_id' => $contribution['id'],
             'trxn_date' => $this->invoice->getInvoiceTime()->format('YmdHis'),
@@ -215,6 +220,46 @@ class CRM_Core_Payment_BitpayIPN {
         return TRUE;
     }
     return TRUE;
+  }
+
+  /**
+   * This is a copy of \Bitpay\Client\Client\fillInvoiceData which is protected
+   *
+   * @param \Bitpay\InvoiceInterface $invoice
+   * @param array $data
+   *
+   * @return \Bitpay\InvoiceInterface
+   */
+  private function fillInvoiceData(\Bitpay\InvoiceInterface $invoice, $data) {
+    # BitPay returns the invoice time in milliseconds. PHP's DateTime object expects the time to be in seconds
+    $invoiceTime = is_numeric($data['invoiceTime']) ? intval($data['invoiceTime']/1000) : $data['invoiceTime'];
+    $expirationTime = is_numeric($data['expirationTime']) ? intval($data['expirationTime']/1000) : $data['expirationTime'];
+    $currentTime = is_numeric($data['currentTime']) ? intval($data['currentTime']/1000) : $data['currentTime'];
+
+    $invoiceToken = new \Bitpay\Token();
+    $invoice
+      ->setToken($invoiceToken->setToken($data['token']))
+      ->setUrl($data['url'])
+      ->setPosData(array_key_exists('posData', $data) ? $data['posData'] : '')
+      ->setStatus($data['status'])
+      ->setBtcPrice(array_key_exists('btcPrice', $data) ? $data['btcPrice'] : '')
+      ->setPrice($data['price'])
+      ->setCurrency(new \Bitpay\Currency($data['currency']))
+      ->setOrderId(array_key_exists('orderId', $data) ? $data['orderId'] : '')
+      ->setInvoiceTime($invoiceTime)
+      ->setExpirationTime($expirationTime)
+      ->setCurrentTime($currentTime)
+      ->setId($data['id'])
+      ->setBtcPaid(array_key_exists('btcPaid', $data) ? $data['btcPaid'] : '')
+      ->setAmountPaid(array_key_exists('amountPaid', $data) ? $data['amountPaid'] : '')
+      ->setRate(array_key_exists('rate', $data) ? $data['rate'] : '')
+      ->setExceptionStatus($data['exceptionStatus'])
+      ->setRefundAddresses(array_key_exists('refundAddresses', $data) ? $data['refundAddresses'] : '')
+      ->setTransactionCurrency(array_key_exists('transactionCurrency', $data) ? $data['transactionCurrency'] : null)
+      ->setPaymentTotals(array_key_exists('paymentTotals', $data) ? $data['paymentTotals'] : '')
+      ->setPaymentSubtotals(array_key_exists('paymentSubtotals', $data) ? $data['paymentSubtotals'] : '')
+      ->setExchangeRates(array_key_exists('exchangeRates', $data) ? $data['exchangeRates'] : '');
+    return $invoice;
   }
 
   /**
