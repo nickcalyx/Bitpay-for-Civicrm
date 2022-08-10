@@ -1,4 +1,4 @@
-## Release 1.1 (not yet released)
+## Release 1.1 (2022-08-10)
 
 * Update vendor libraries.
 * Major refactor / cleanup - require "Payment Shared" library.
