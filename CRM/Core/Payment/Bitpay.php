@@ -203,7 +203,7 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
     $this->setPaymentProcessorTrxnID($invoice->getId());
     $returnParams = [];
     // We always return "Pending" because payment is Completed later by webhook.
-    $this->setStatusPaymentPending($returnParams);
+    $returnParams = $this->setStatusPaymentPending($returnParams);
 
     // For a single charge there is no invoice, we set OrderID to the TrxnID.
     if (empty($this->getPaymentProcessorOrderID())) {
