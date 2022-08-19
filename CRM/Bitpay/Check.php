@@ -7,7 +7,7 @@ class CRM_Bitpay_Check {
   /**
    * @var string
    */
-  const MIN_VERSION_MJWSHARED = '1.2.6';
+  const MIN_VERSION_MJWSHARED = '1.2.8';
 
   /**
    * @var array

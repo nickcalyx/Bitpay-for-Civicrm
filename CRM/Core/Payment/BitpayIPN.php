@@ -6,6 +6,7 @@
 
 use Bitpay\InvoiceInterface;
 use Civi\Api4\PaymentprocessorWebhook;
+use Civi\Payment\Exception\PaymentProcessorException;
 use CRM_Bitpay_ExtensionUtil as E;
 
 class CRM_Core_Payment_BitpayIPN {
@@ -25,15 +26,14 @@ class CRM_Core_Payment_BitpayIPN {
   /**
    * CRM_Core_Payment_BitpayIPN constructor.
    *
-   * @param array $ipnData
-   * @param bool $verify
+   * @param ?\CRM_Core_Payment_Bitpay $paymentObject
    *
-   * @throws \CRM_Core_Exception
+   * @throws \Civi\Payment\Exception\PaymentProcessorException
    */
   public function __construct(?CRM_Core_Payment_Bitpay $paymentObject = NULL) {
     if ($paymentObject !== NULL && !($paymentObject instanceof CRM_Core_Payment_Bitpay)) {
       // This would be a coding error.
-      throw new Exception(__CLASS__ . " constructor requires CRM_Core_Payment_Bitpay object (or NULL for legacy use).");
+      throw new PaymentProcessorException(__CLASS__ . " constructor requires CRM_Core_Payment_Bitpay object (or NULL for legacy use).");
     }
     $this->_paymentProcessor = $paymentObject;
   }
@@ -46,7 +46,6 @@ class CRM_Core_Payment_BitpayIPN {
    */
   public function onReceiveWebhook(): bool {
     $event = $this->getData();
-    \Civi::log('bitpay')->debug('event: ' . print_r($event, TRUE));
 
     // Bitpay sends a lot of duplicate webhooks.
     // We only need to record / process once
@@ -82,9 +81,9 @@ class CRM_Core_Payment_BitpayIPN {
    * Returns TRUE/FALSE for success.
    */
   public function processQueuedWebhookEvent(array $webhookEvent) :bool {
-    $event = json_decode($webhookEvent['data']);
+    $webhookEventData = json_decode($webhookEvent['data']);
 
-    $processingResult = $this->processWebhookEvent($event);
+    $processingResult = $this->processWebhookEvent($webhookEventData);
     // Update the stored webhook event.
     PaymentprocessorWebhook::update(FALSE)
       ->addWhere('id', '=', $webhookEvent['id'])
@@ -106,7 +105,7 @@ class CRM_Core_Payment_BitpayIPN {
    * - ok boolean
    * - exception if one occurred.
    */
-  public function processWebhookEvent($event) :StdClass {
+  public function processWebhookEvent($webhookEventData) :StdClass {
     $return = (object) ['message' => NULL, 'ok' => FALSE, 'exception' => NULL];
 
     try {
@@ -131,7 +130,7 @@ class CRM_Core_Payment_BitpayIPN {
 
       // Use the payload we stored when the webhook was retrieved to build the invoice object
       $this->invoice = new \Bitpay\Invoice();
-      $data = json_decode(json_encode($event), TRUE);
+      $data = json_decode(json_encode($webhookEventData), TRUE);
       $this->fillInvoiceData($this->invoice, $data);
 
       $return->ok = $this->main();
