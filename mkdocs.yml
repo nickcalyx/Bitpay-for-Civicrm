@@ -17,4 +17,5 @@ markdown_extensions:
 
 nav:
 - Setup and Configuration: index.md
-- Release Notes: release/release_notes.md
+- Usage: usage.md
+- Release Notes: releasenotes.md
