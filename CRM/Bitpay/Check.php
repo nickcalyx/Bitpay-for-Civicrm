@@ -25,7 +25,7 @@ class CRM_Bitpay_Check {
 
   /**
    * @return array
-   * @throws \CiviCRM_API3_Exception
+   * @throws \CRM_Core_Exception
    */
   public function checkRequirements() {
     $this->checkBitpayRequirements();
@@ -101,7 +101,7 @@ class CRM_Bitpay_Check {
   }
 
   /**
-   * @throws \CiviCRM_API3_Exception
+   * @throws \CRM_Core_Exception
    */
   private function checkExtensionMjwshared() {
     // mjwshared: required. Requires min version

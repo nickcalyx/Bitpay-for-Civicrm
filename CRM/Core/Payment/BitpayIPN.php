@@ -155,7 +155,7 @@ class CRM_Core_Payment_BitpayIPN {
    * Main handler for bitpay IPN callback
    *
    * @return bool
-   * @throws \CiviCRM_API3_Exception
+   * @throws \CRM_Core_Exception
    */
   public function main(): bool {
     // First we receive an IPN with status "paid" - contribution remains pending - how do we indicate we received "paid"?

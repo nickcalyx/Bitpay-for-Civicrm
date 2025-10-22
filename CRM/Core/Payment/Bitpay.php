@@ -132,7 +132,7 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
    *   Result array
    *
    * @throws \CRM_Core_Exception
-   * @throws \CiviCRM_API3_Exception
+   * @throws \CRM_Core_Exception
    */
   public function doPayment(&$paymentParams, $component = 'contribute') {
     // Get the bitpay client object
@@ -234,7 +234,7 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
    * https://bitpay.com/docs/invoice-callbacks
    *
    * @throws \CRM_Core_Exception
-   * @throws \CiviCRM_API3_Exception
+   * @throws \CRM_Core_Exception
    */
   public function handlePaymentNotification() {
     // Set default http response to 200
