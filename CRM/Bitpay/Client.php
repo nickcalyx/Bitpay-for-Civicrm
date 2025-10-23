@@ -27,7 +27,7 @@ class CRM_Bitpay_Client {
    *
    * @return \Bitpay\Client\Client
    * @throws \CRM_Core_Exception
-   * @throws \CiviCRM_API3_Exception
+   * @throws \CRM_Core_Exception
    */
   public function getClient() {
     $storageEngine = new \Bitpay\Storage\EncryptedFilesystemStorage(CRM_Bitpay_Keys::getKeyPassword($this->_paymentProcessor['id'])); // Password may need to be updated if you changed it

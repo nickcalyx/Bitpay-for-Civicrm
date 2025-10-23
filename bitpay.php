@@ -157,7 +157,7 @@ function _bitpay_civicrm_cleanupOldExtension() {
       'id' => $jobId,
     ]);
     $successes[] = 'Deleted scheduled job update_bitpay_invoices';
-  } catch (CiviCRM_API3_Exception $e) {
+  } catch (CRM_Core_Exception $e) {
     $errors[] = 'Unable to delete scheduled job: ' . $e->getMessage();
   }
 
@@ -171,7 +171,7 @@ function _bitpay_civicrm_cleanupOldExtension() {
       'id' => $bitcoinId,
       'class_name' => 'Payment_BitcoinD_Old',
     ]);
-  } catch (CiviCRM_API3_Exception $e) {
+  } catch (CRM_Core_Exception $e) {
     $errors[] = 'Could not get PaymentProcessorType for Payment_BitcoinD - it is not installed';
   }
 
@@ -184,7 +184,7 @@ function _bitpay_civicrm_cleanupOldExtension() {
     if (!empty($bitPayOldId)) {
       return;
     }
-  } catch (CiviCRM_API3_Exception $e) {
+  } catch (CRM_Core_Exception $e) {
     // That's fine, we haven't already upgraded.
   }
 
@@ -198,7 +198,7 @@ function _bitpay_civicrm_cleanupOldExtension() {
       'class_name' => 'Payment_BitPay_Old',
 
     ]);
-  } catch (CiviCRM_API3_Exception $e) {
+  } catch (CRM_Core_Exception $e) {
     $errors[] = 'Could not get PaymentProcessorType for Payment_BitPay - it is not installed';
   }
 

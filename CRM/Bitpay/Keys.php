@@ -32,7 +32,7 @@ class CRM_Bitpay_Keys {
    * @param $processorId
    *
    * @throws \CRM_Core_Exception
-   * @throws \CiviCRM_API3_Exception
+   * @throws \CRM_Core_Exception
    */
   public static function getKeyPassword($processorId) {
     $paymentProcessor = civicrm_api3('PaymentProcessor', 'getsingle', [
