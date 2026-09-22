@@ -139,11 +139,11 @@ class CRM_Bitpay_Keys {
     /**** end ****/
     try {
       $token = $client->createToken(
-        array(
+        [
           'pairingCode' => $pairingCode,
           'label'       => 'You can insert a label here',
           'id'          => (string) $sin,
-        )
+        ]
       );
     } catch (\Exception $e) {
       /**

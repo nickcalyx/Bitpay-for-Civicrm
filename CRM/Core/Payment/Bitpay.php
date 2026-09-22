@@ -38,7 +38,7 @@ class CRM_Core_Payment_Bitpay extends CRM_Core_Payment {
    *   The error message if any.
    */
   public function checkConfig() {
-    $error = array();
+    $error = [];
 
     if (empty($this->_paymentProcessor['password'])) {
       $error[] = ts('The decryption password has not been set.');

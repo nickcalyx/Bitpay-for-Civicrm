@@ -28,11 +28,11 @@
  * database as appropriate. For more details, see "hook_civicrm_managed" at:
  * http://wiki.civicrm.org/confluence/display/CRMDOC/Hook+Reference
  */
-return array(
-  0 => array(
+return [
+  0 => [
     'name' => 'Bitpay',
     'entity' => 'payment_processor_type',
-    'params' => array(
+    'params' => [
       'version' => 3,
       'title' => 'Bitpay',
       'name' => 'bitpay',
@@ -45,8 +45,8 @@ return array(
       'url_site_test_default' => 'https://test.bitpay.com/api',
       'is_recur' => 0,
       'billing_mode' => 1,
-    ),
-  ),
+    ],
+  ],
   /**1 => array (
     'name' => 'Cron:SmartDebit.syncFromSmartDebit',
     'entity' => 'Job',
@@ -61,4 +61,4 @@ return array(
       'parameters' => '',
     ),
   ),*/
-);
+];
